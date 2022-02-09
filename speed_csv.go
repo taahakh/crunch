@@ -32,7 +32,7 @@ func ReadPCCSV(file string) (csvReader [][]string) {
 			log.Println("This shit aint working")
 		}
 		// item := [][]string{{record[0]}}
-		csvReader = append(csvReader, []string{record[0]})
+		csvReader = append(csvReader, []string{record[1]})
 
 	}
 
@@ -92,4 +92,26 @@ func WriteCSV(file string, records [][]string) (state bool, err error) {
 	}
 
 	return state, err
+}
+
+func WriteCSVpointer(file string, rec **[][]string) {
+	// creates the file
+	csvFile, err := os.Create(file)
+	if err != nil {
+		log.Println("Couldn't open")
+	}
+	defer csvFile.Close()
+
+	csvWriter := csv.NewWriter(csvFile)
+	defer csvWriter.Flush()
+
+	// writes each record in the file
+	// state tells the end user if this transactions was sucessful
+	// state = true
+	for _, record := range **rec {
+		if csvWriter.Write(record); err != nil {
+			log.Println(err)
+		}
+	}
+
 }
