@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 )
 
 func ReadPCCSV(file string) (csvReader [][]string) {
@@ -94,7 +95,7 @@ func WriteCSV(file string, records [][]string) (state bool, err error) {
 	return state, err
 }
 
-func WriteCSVpointer(file string, rec **[][]string) {
+func WriteCSVpointer(file string, rec *[][]string) {
 	// creates the file
 	csvFile, err := os.Create(file)
 	if err != nil {
@@ -108,10 +109,59 @@ func WriteCSVpointer(file string, rec **[][]string) {
 	// writes each record in the file
 	// state tells the end user if this transactions was sucessful
 	// state = true
-	for _, record := range **rec {
+	for _, record := range *rec {
 		if csvWriter.Write(record); err != nil {
 			log.Println(err)
 		}
+	}
+
+}
+
+// calculate slice range - make sure it doesn't go overboard with the length
+func calculateRange(lower, upper, length *int, stage *bool, rows int) {
+	if *length-*upper < rows {
+		*lower = *upper
+		*upper = *length
+		*stage = true
+	} else {
+		*lower = *upper
+		*upper += rows
+	}
+}
+
+// limited to only 500 rows per file
+// no naming system implemented
+// only splitting
+func SplitCSV(folder, fileBreak, fileName string) {
+
+	const rows int = 500
+	var fileNumber int8 = 0
+	var lowerBound, upperBound int = 0, rows
+	var toBreak bool = false
+
+	data, err := ReadCSV(fileBreak)
+	if err != nil {
+		log.Println("Failed to load document")
+	}
+
+	length := len(data)
+	calculateRange(&lowerBound, &upperBound, &length, &toBreak, rows)
+
+	for {
+
+		slice := data[lowerBound:upperBound]
+
+		fileNumber++
+		tempFileName := folder + fileName + strconv.Itoa(int(fileNumber)) + ".csv"
+
+		WriteCSVpointer(tempFileName, &slice)
+
+		if toBreak {
+			break
+		}
+
+		calculateRange(&lowerBound, &upperBound, &length, &toBreak, rows)
+
 	}
 
 }
