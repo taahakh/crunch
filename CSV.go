@@ -2,6 +2,7 @@ package speed
 
 import (
 	"encoding/csv"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -50,7 +51,7 @@ func WritePCCSV(file string, cvList [][]string) {
 	defer csvFile.Close()
 
 	csvWriter := csv.NewWriter(csvFile)
-	err = csvWriter.WriteAll(cvList)
+	csvWriter.WriteAll(cvList)
 }
 
 func ReadCSV(file string) (csvReader [][]string, err error) {
@@ -68,6 +69,24 @@ func ReadCSV(file string) (csvReader [][]string, err error) {
 	}
 
 	return csvReader, err
+}
+
+func ReadCSVpointer(file string) (cr *[][]string, err error) {
+	// we are opening the csv file, checking if it exists and making sure it closes in the end
+	csvFile, err := os.Open(file)
+	if err != nil {
+		log.Println(err)
+	}
+	defer csvFile.Close()
+
+	// reads the csv files in rows. each row is in an array
+	csvReader, err := csv.NewReader(csvFile).ReadAll()
+	if err != nil {
+		log.Println(err)
+	}
+
+	cr = &csvReader
+	return cr, err
 }
 
 func WriteCSV(file string, records [][]string) (state bool, err error) {
@@ -117,6 +136,27 @@ func WriteCSVpointer(file string, rec *[][]string) {
 
 }
 
+func AppendCSVpointer(file string, rec *[][]string) {
+	// creates the file
+	csvFile, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Println("Couldn't open APPEND")
+	}
+	defer csvFile.Close()
+
+	csvWriter := csv.NewWriter(csvFile)
+	defer csvWriter.Flush()
+
+	// writes each record in the file
+	// state tells the end user if this transactions was sucessful
+	// state = true
+	for _, record := range *rec {
+		if csvWriter.Write(record); err != nil {
+			log.Println(err)
+		}
+	}
+}
+
 // calculate slice range - make sure it doesn't go overboard with the length
 func calculateRange(lower, upper, length *int, stage *bool, rows int) {
 	if *length-*upper < rows {
@@ -164,4 +204,17 @@ func SplitCSV(folder, fileBreak, fileName string) {
 
 	}
 
+}
+
+// checks existsece, returns state and any errors thrown
+// checks for directory/file
+func Exists(file string) (bool, error) {
+	_, err := os.Stat(file)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
 }

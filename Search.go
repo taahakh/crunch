@@ -45,9 +45,9 @@ func BinarySearch(record [][]string, item string) (exists bool, index int) {
 	return false, -1
 }
 
-func LinearSearch(record [][]string, element string) (index int) {
+func LinearSearch(record [][]string, element string, index int) int {
 	for i := 0; i < len(record); i++ {
-		if record[i][0] == element {
+		if record[i][index] == element {
 			return i
 		}
 	}
