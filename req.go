@@ -90,7 +90,10 @@ func Get(url string) []byte {
 // Returns a list of tags and its data when found
 // does depth first search
 func SearchTag(h *html.Node, tag string) {
-	fmt.Println(h.Data)
+	if h.Type == html.ElementNode && h.Data == tag {
+		fmt.Println("This tag has been found!")
+	}
+	// fmt.Println(h.Data)
 	for c := h.FirstChild; c != nil; c = c.NextSibling {
 		SearchTag(c, tag)
 	}
