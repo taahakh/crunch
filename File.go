@@ -1,23 +1,33 @@
 package speed
 
-// func BufferByteRead(f *os.File) []byte {
+import (
+	"io"
+	"log"
+	"os"
+)
 
-// 	defer f.Close()
+func BufferByteRead(n string) []byte {
 
-// 	stream := make([]byte, 0)
-// 	b := make([]byte, 1024)
+	f, err := os.Open(n)
+	if err != nil {
+		log.Fatal("AYOOO")
+	}
+	defer f.Close()
 
-// 	for {
-// 		_, err := f.Read(b)
+	stream := make([]byte, 0)
+	b := make([]byte, 1024)
 
-// 		if err == io.EOF {
-// 			break
-// 		}
+	for {
+		_, err := f.Read(b)
 
-// 		if err != nil {
-// 			log.Fatal("ok wtf")
-// 		}
-// 		stream = append(stream, b...)
-// 	}
-// 	return stream
-// }
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			log.Fatal("ok wtf")
+		}
+		stream = append(stream, b...)
+	}
+	return stream
+}
