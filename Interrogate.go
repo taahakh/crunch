@@ -38,7 +38,9 @@ type SearchSpecifc struct {
 }
 
 type Search struct {
-	Tag
+	Tag      string
+	Selector []Selectors
+	Attr     []string
 }
 
 type SearchGroup struct {
@@ -59,6 +61,18 @@ type Selectors struct {
 	Name string
 }
 
+func Reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+// func CreateSearch(s *SearchBuilder) Search {
+
+// }
+
 func FinderParser(s string) {
 	lol := []string{}
 	for _, v := range s {
@@ -76,6 +90,7 @@ func FinderParser(s string) {
 		build.Tracking = nil
 	}
 	fmt.Println(build)
+
 }
 
 func finderParser(r []string, i int, b *SearchBuilder) {
@@ -113,7 +128,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 				log.Fatal("selector state")
 				return
 			}
-			b.Selector = append(b.Selector, Selectors{Type: r, Name: appendstring(b.Tracking)})
+			b.Selector = append(b.Selector, Selectors{Type: r, Name: Reverse(appendstring(b.Tracking))})
 			b.Tracking = nil
 			b.SelectorState = true
 			return
@@ -143,7 +158,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 			log.Fatal("left bracket")
 		}
 		b.FinishBracket = true
-		b.Attr = append(b.Attr, appendstring(b.Tracking))
+		b.Attr = append(b.Attr, Reverse(appendstring(b.Tracking)))
 		b.Tracking = nil
 		return
 	}
@@ -152,7 +167,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 		if !b.Bracket {
 			log.Fatal("comma")
 		}
-		b.Attr = append(b.Attr, appendstring(b.Tracking))
+		b.Attr = append(b.Attr, Reverse(appendstring(b.Tracking)))
 		b.Tracking = nil
 		return
 	}
