@@ -90,6 +90,8 @@ var htmlText string = `
             <button class="button-design darker-opacity" type="button" name="button"
               onclick="location.href='evaluation.html'">Get a free valuation</button>
 
+			  <div class="waga john"></div>
+			  <span class="waga"></div>
           </div>
 
         </div>
