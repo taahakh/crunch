@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -41,146 +40,16 @@ type Search struct {
 	Tag      string
 	Selector []Selectors
 	Attr     []string
+	Value    []string
 }
 
 type SearchGroup struct {
 	Group []Search
 }
 
-type SearchBuilder struct {
-	ANstart, Bracket, FinishBracket bool
-	LeftStart, SelectorState        bool
-	Tracking                        []string
-	Attr                            []string
-	Selector                        []Selectors
-	Tag                             string
-}
-
 type Selectors struct {
 	Type string
 	Name string
-}
-
-func Reverse(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
-}
-
-// func CreateSearch(s *SearchBuilder) Search {
-
-// }
-
-func FinderParser(s string) {
-	lol := []string{}
-	for _, v := range s {
-		lol = append(lol, string(v))
-	}
-	build := &SearchBuilder{}
-	build.ANstart = false
-	build.Bracket = false
-	build.FinishBracket = false
-	build.LeftStart = false
-	build.SelectorState = false
-	finderParser(lol, 0, build)
-	if len(build.Tracking) > 0 {
-		build.Tag = strings.Join(build.Tracking, "")
-		build.Tracking = nil
-	}
-	fmt.Println(build)
-
-}
-
-func finderParser(r []string, i int, b *SearchBuilder) {
-	i++
-	if i != len(r) {
-		finderParser(r, i, b)
-	}
-	checkStringParse(r[i-1], b, i-1)
-}
-
-func checkStringParse(r string, b *SearchBuilder, i int) {
-
-	var isAlphaNumeric = regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString
-
-	var appendstring = func(s []string) string {
-		join := strings.Join(s, "")
-		return join
-	}
-
-	if b.FinishBracket || (!b.Bracket && !b.FinishBracket) {
-
-		if b.FinishBracket {
-			if !b.LeftStart {
-				if isAlphaNumeric(r) {
-					b.Tracking = append(b.Tracking, r)
-					b.LeftStart = true
-					return
-				}
-				log.Fatal("not right: left")
-			}
-		}
-
-		if r == "." || r == "#" {
-			if b.SelectorState {
-				log.Fatal("selector state")
-				return
-			}
-			b.Selector = append(b.Selector, Selectors{Type: r, Name: Reverse(appendstring(b.Tracking))})
-			b.Tracking = nil
-			b.SelectorState = true
-			return
-		}
-
-		if isAlphaNumeric(r) {
-			b.SelectorState = false
-			b.Tracking = append(b.Tracking, r)
-			return
-		}
-
-	}
-
-	if r == "]" {
-		if b.ANstart || b.Bracket {
-			log.Fatal("right bracket")
-		}
-		if !b.Bracket {
-			b.Bracket = true
-		}
-		return
-	}
-
-	if r == "[" {
-		// fmt.Print("Im here")
-		if !b.Bracket || b.FinishBracket {
-			log.Fatal("left bracket")
-		}
-		b.FinishBracket = true
-		b.Attr = append(b.Attr, Reverse(appendstring(b.Tracking)))
-		b.Tracking = nil
-		return
-	}
-
-	if r == "," {
-		if !b.Bracket {
-			log.Fatal("comma")
-		}
-		b.Attr = append(b.Attr, Reverse(appendstring(b.Tracking)))
-		b.Tracking = nil
-		return
-	}
-
-	if isAlphaNumeric(r) {
-		if !b.Bracket {
-			b.ANstart = true
-		}
-		b.Tracking = append(b.Tracking, r)
-		return
-	} else {
-		log.Fatal("final alphanumeric")
-	}
 }
 
 // works with the bytestream that naturally comes out of the Parse function
