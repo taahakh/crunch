@@ -31,16 +31,10 @@ type TagList struct {
 	Tags map[string][]Tag
 }
 
+// ultra specific search struct
 type SearchSpecifc struct {
 	Tag  string
 	Attr map[string]string
-}
-
-type Search struct {
-	Tag      string
-	Selector []Selectors
-	Attr     []string
-	Value    []string
 }
 
 type SearchGroup struct {
@@ -127,37 +121,6 @@ func GetTags(r *html.Node, s SearchSpecifc, l *Tag) {
 	getTags(r, s, l)
 }
 
-// func getTags(r *html.Node, s Search, l *Tag) *html.Node {
-
-// 	isEmpty := false
-// 	if !(len(s.Tag) > 0) {
-// 		isEmpty = true
-// 	}
-
-// 	if r.Type == html.ElementNode && (r.Data == s.Tag || isEmpty) {
-// 		temp := []Attribute{}
-// 		for i := 0; i < len(r.Attr); i++ {
-// 			attr := r.Attr[i]
-// 			if compareAttrandValue(attr, s) || len(s.Tag) > 0 {
-// 				temp = append(temp, Attribute{Name: attr.Key, Value: attr.Val})
-// 				addInnerHtml(r, l)
-// 			}
-// 		}
-
-// 		if len(temp) > 0 {
-// 			l.Attr = append(l.Attr, temp)
-// 			temp = nil
-// 		}
-
-// 	}
-
-// 	for c := r.FirstChild; c != nil; c = c.NextSibling {
-// 		getTags(c, s, l)
-// 	}
-
-// 	return r
-// }
-
 func getTags(r *html.Node, s SearchSpecifc, l *Tag) *html.Node {
 
 	isEmpty := false
@@ -169,7 +132,6 @@ func getTags(r *html.Node, s SearchSpecifc, l *Tag) *html.Node {
 	var f_TagEmpty func(r *html.Node)
 
 	f = func(x *html.Node) {
-		// fmt.Println("got atg")
 		if x.Type == html.ElementNode && x.Data == s.Tag {
 			temp := []Attribute{}
 			for i := 0; i < len(x.Attr); i++ {
@@ -218,28 +180,43 @@ func getTags(r *html.Node, s SearchSpecifc, l *Tag) *html.Node {
 		f(r)
 	}
 
-	// if r.Type == html.ElementNode && (r.Data == s.Tag || isEmpty) {
-	// 	temp := []Attribute{}
-	// 	for i := 0; i < len(r.Attr); i++ {
-	// 		attr := r.Attr[i]
-	// 		if compareAttrandValue(attr, s) || len(s.Tag) > 0 {
-	// 			temp = append(temp, Attribute{Name: attr.Key, Value: attr.Val})
-	// 			addInnerHtml(r, l)
-	// 		}
-	// 	}
-
-	// 	if len(temp) > 0 {
-	// 		l.Attr = append(l.Attr, temp)
-	// 		temp = nil
-	// 	}
-
-	// }
-
-	// for c := r.FirstChild; c != nil; c = c.NextSibling {
-	// 	getTags(c, s, l)
-	// }
-
 	return r
+}
+
+func AdvancedSearch(r *html.Node, s Search, l *Tag) {
+
+	var search = func() {
+		temp := []Attribute{}
+		for i := 0; i < len(r.Attr); i++ {
+			attr := r.Attr[i]
+
+			if compareWithSearch(attr, s) {
+				temp = append(temp, Attribute{Name: attr.Key, Value: attr.Val})
+			}
+		}
+		if len(temp) > 0 {
+			l.Attr = append(l.Attr, temp)
+			temp = nil
+		}
+	}
+
+	func() {
+		if r.Type == html.ElementNode {
+			if len(s.Tag) > 0 {
+				if r.Data == s.Tag {
+					search()
+				}
+			} else {
+				search()
+			}
+			// search()
+		}
+
+		for c := r.FirstChild; c != nil; c = c.NextSibling {
+			AdvancedSearch(c, s, l)
+		}
+	}()
+
 }
 
 func addInnerHtml(r *html.Node, l *Tag) {
@@ -261,6 +238,35 @@ func compareAttrandValue(attr html.Attribute, s SearchSpecifc) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func compareWithSearch(attr html.Attribute, s Search) bool {
+	// see if there is attributes that we want to look for
+	if len(s.Attr) > 0 {
+		// loop through out attr list
+		for _, val := range s.Attr {
+			// fmt.Println(val)
+			// if key exists
+			if val.Name == attr.Key {
+				// if value exists
+				if len(val.Value) > 0 {
+					// search through attributes
+					if words := strings.Fields(attr.Val); len(words) > 0 {
+						// splits atrribute values
+						for _, y := range words {
+							if val.Value == y {
+								return true
+							}
+						}
+					}
+				} else {
+					return true
+				}
+			}
+		}
+	}
+
 	return false
 }
 

@@ -7,14 +7,19 @@ import (
 	"strings"
 )
 
+// Customisable search struct
+type Search struct {
+	Tag      string
+	Selector []Selectors
+	Attr     []Attribute
+}
 type SearchBuilder struct {
-	Bracket, FinishBracket, ValueState, EqualState bool
-	Left, Right, SelectorState                     bool
-	Tracking                                       []string
-	Attr                                           []string
-	AttrValue                                      []string
-	Selector                                       []Selectors
-	Tag                                            string
+	Bracket, FinishBracket, ValueState, EqualState, KeyPair bool
+	Left, Right, SelectorState                              bool
+	Tracking                                                []string
+	Attr                                                    []Attribute
+	Selector                                                []Selectors
+	Tag                                                     string
 }
 
 func Reverse(s string) string {
@@ -31,7 +36,6 @@ func CreateSearch(sb *SearchBuilder) *Search {
 		Tag:      sb.Tag,
 		Selector: sb.Selector,
 		Attr:     sb.Attr,
-		Value:    sb.AttrValue,
 	}
 }
 
@@ -48,10 +52,11 @@ func FinderParser(s string) *Search {
 	build.EqualState = false
 	build.Left = false
 	build.Right = false
+	build.KeyPair = false
 	finderParser(lol, 0, build)
 	checkBuild(build)
 	if len(build.Tracking) > 0 {
-		build.Tag = strings.Join(build.Tracking, "")
+		build.Tag = Reverse(strings.Join(build.Tracking, ""))
 		build.Tracking = nil
 	}
 	fmt.Println(build)
@@ -82,7 +87,13 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 	}
 
 	var attrAppend = func() {
-		b.Attr = append(b.Attr, Reverse(appendstring(b.Tracking)))
+		if b.KeyPair {
+			b.KeyPair = false
+			item := &b.Attr[len(b.Attr)-1]
+			item.Name = Reverse(appendstring(b.Tracking))
+		} else {
+			b.Attr = append(b.Attr, Attribute{Name: Reverse(appendstring(b.Tracking))})
+		}
 		b.Tracking = nil
 	}
 
@@ -92,7 +103,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 	}
 
 	var valueAppend = func() {
-		b.AttrValue = append(b.AttrValue, Reverse(appendstring(b.Tracking)))
+		b.Attr = append(b.Attr, Attribute{Value: Reverse(appendstring(b.Tracking))})
 		b.Tracking = nil
 	}
 
@@ -148,6 +159,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 				// attrAppend()
 				valueAppend()
 				b.EqualState = false
+				b.KeyPair = true
 				return
 			}
 		} else if b.ValueState {
