@@ -25,6 +25,11 @@ type Tag struct {
 	Name string
 	Text [][]string
 	Attr [][]Attribute
+	Node [][]Node
+}
+
+type Node struct {
+	Node *html.Node
 }
 
 type TagList struct {
@@ -186,16 +191,17 @@ func getTags(r *html.Node, s SearchSpecifc, l *Tag) *html.Node {
 func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 
 	var search = func() {
-		temp := []Attribute{}
+		temp := []Node{}
 		for i := 0; i < len(r.Attr); i++ {
 			attr := r.Attr[i]
 
 			if compareWithSearch(attr, s) {
-				temp = append(temp, Attribute{Name: attr.Key, Value: attr.Val})
+				fmt.Println(r.Data)
+				temp = append(temp, Node{Node: r})
 			}
 		}
 		if len(temp) > 0 {
-			l.Attr = append(l.Attr, temp)
+			l.Node = append(l.Node, temp)
 			temp = nil
 		}
 	}

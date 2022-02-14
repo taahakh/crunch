@@ -32,6 +32,8 @@ var htmlText string = `
   <meta name="twitter:image" content="https://ruktaj.co.uk/assets/logo.png">
 
   <link rel="stylesheet" href="style.css">
+  <link rel="wonder" href="style.css">
+
   <!-- <style type="text/css">
   </style>
   <link rel="preload" href="style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
