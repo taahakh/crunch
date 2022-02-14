@@ -101,7 +101,7 @@ var htmlText string = `
 
     </div>
 
-
+    <span class="title-separation"></span>
 
 
     <div class="info-container">

@@ -215,7 +215,6 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 			} else {
 				search()
 			}
-			// search()
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
@@ -248,32 +247,40 @@ func compareAttrandValue(attr html.Attribute, s SearchSpecifc) bool {
 }
 
 func compareWithSearch(attr html.Attribute, s Search) bool {
-	// see if there is attributes that we want to look for
-	if len(s.Attr) > 0 {
-		// loop through out attr list
-		for _, val := range s.Attr {
-			// fmt.Println(val)
-			// if key exists
-			if val.Name == attr.Key {
-				// if value exists
-				if len(val.Value) > 0 {
-					// search through attributes
-					if words := strings.Fields(attr.Val); len(words) > 0 {
-						// splits atrribute values
-						for _, y := range words {
-							if val.Value == y {
-								return true
+
+	var search = func() bool {
+		// see if there is attributes that we want to look for
+		if len(s.Attr) > 0 {
+			// loop through out attr list
+			for _, val := range s.Attr {
+				// fmt.Println(val)
+				// if key exists
+				if val.Name == attr.Key {
+					// if value exists
+					if len(val.Value) > 0 {
+						// search through attributes
+						if words := strings.Fields(attr.Val); len(words) > 0 {
+							// splits atrribute values
+							for _, y := range words {
+								if val.Value == y {
+									return true
+								}
 							}
 						}
+					} else {
+						return true
 					}
-				} else {
-					return true
 				}
 			}
 		}
+		return false
 	}
 
-	return false
+	if len(s.Tag) > 0 && len(s.Attr) == 0 {
+		return true
+	}
+
+	return search()
 }
 
 func collectText(r *html.Node, b *bytes.Buffer) {
