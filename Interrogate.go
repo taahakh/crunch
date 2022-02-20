@@ -196,7 +196,6 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 			attr := r.Attr[i]
 
 			if compareWithSearch(attr, s) {
-				fmt.Println(r.Data)
 				temp = append(temp, Node{Node: r})
 			}
 		}
@@ -210,7 +209,11 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 		if r.Type == html.ElementNode {
 			if len(s.Tag) > 0 {
 				if r.Data == s.Tag {
-					search()
+					if len(s.Attr) > 0 {
+						search()
+					} else {
+						l.Node = append(l.Node, []Node{{Node: r}})
+					}
 				}
 			} else {
 				search()
