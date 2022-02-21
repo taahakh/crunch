@@ -188,8 +188,13 @@ func getTags(r *html.Node, s SearchSpecifc, l *Tag) *html.Node {
 	return r
 }
 
+// Not efficient and takes in Search struct as parameters to automatically search for the correct Nodes
 func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 
+	// Search function that carries out checks for attributes
+	// appends to node struct to then be appended to another struct called Tag
+	// Tag keep all data associated to the to this one struct
+	// Search and Tag works on per HTML Doc basis
 	var search = func() {
 		temp := []Node{}
 		for i := 0; i < len(r.Attr); i++ {
@@ -207,23 +212,35 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 
 	func() {
 		if r.Type == html.ElementNode {
+			// checks if a tag exists
 			if len(s.Tag) > 0 {
+				// check if the tag equals to the data
 				if r.Data == s.Tag {
+					// checks if the tag is accompanied with attributes
 					if len(s.Attr) > 0 {
 						search()
-					} else {
+					} else { // appends all named tag that has been chosen
 						l.Node = append(l.Node, []Node{{Node: r}})
 					}
 				}
-			} else {
+			} else { // used if only attr are present for the search
 				search()
 			}
 		}
 
+		// doing a depth first search
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
 			AdvancedSearch(c, s, l)
 		}
 	}()
+
+}
+
+// func FindNodeOnce(r *html.Node, s Search) *html.Node {
+
+// }
+
+func getNodeOnce(r *html.Node, s Search) {
 
 }
 
