@@ -63,6 +63,18 @@ func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
 	}
 }
 
+func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) {
+	s := FinderParser(search)
+	l := &Tag{}
+	findStrictly(h.Node, *s, l)
+	for _, x := range l.Node {
+		for _, y := range x {
+			h.NodeList = append(h.NodeList, y.Node)
+		}
+	}
+	m[0](h)
+}
+
 func (h *HTMLDocument) Attr() []map[string]string {
 	list := make([]map[string]string, 0)
 	for _, x := range h.NodeList {
@@ -104,11 +116,19 @@ func getAttr(r []*html.Node, once bool, elem []string) []string {
 	return list
 }
 
-func Text(r *html.Node, b *bytes.Buffer) string {
+func Text(r *html.Node) string {
+	b := &bytes.Buffer{}
+	getText(r, b)
+	return b.String()
+}
+
+func getText(r *html.Node, b *bytes.Buffer) {
 	if r.Type == html.TextNode {
 		b.WriteString(r.Data)
 	}
-	return b.String()
+	for c := r.FirstChild; c != nil; c = c.NextSibling {
+		getText(c, b)
+	}
 }
 
 // func Find(h *html.Node, element string) []*html.Node {

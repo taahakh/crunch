@@ -103,7 +103,7 @@ var htmlText string = `
     </div>
 
     <span class="title-separation"></span>
-
+    <a class="des" href="a">sadasd</a>
 
     <div class="info-container">
 
@@ -196,7 +196,7 @@ var htmlText string = `
       <div id="info-index-servicegrid" class="info-section info-bg1 extension">
 
         <h1>What we provide . . . </h1>
-        <div class="info-sml-bx title-separation">
+        <div id="as" class="info-sml-bx title-separation">
           <h2>Free inventory and check-in inspection</h2>
           <h2>Rent guarantee</h2>
           <h2>Amazing customer service</h2>
