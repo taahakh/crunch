@@ -95,7 +95,8 @@ var htmlText string = `
 			  <div class="waga john"></div>
 			  <span class="waga"></div>
           </div>
-
+        <div class="test" id="classtest" href="dfdf/sdaad" rel="sd">
+        <span class="test" id="idtest">
         </div>
       </div>
 

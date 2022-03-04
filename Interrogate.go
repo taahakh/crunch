@@ -46,10 +46,10 @@ type SearchGroup struct {
 	Group []Search
 }
 
-type Selectors struct {
-	Type string
-	Name string
-}
+// type Selectors struct {
+// 	Type string
+// 	Name string
+// }
 
 // works with the bytestream that naturally comes out of the Parse function
 // adds it to the document list
@@ -217,7 +217,7 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 				// check if the tag equals to the data
 				if r.Data == s.Tag {
 					// checks if the tag is accompanied with attributes
-					if len(s.Attr) > 0 {
+					if len(s.Attr) > 0 || len(s.Selector) > 0 {
 						search()
 					} else { // appends all named tag that has been chosen
 						l.Node = append(l.Node, []Node{{Node: r}})
@@ -240,9 +240,9 @@ func AdvancedSearch(r *html.Node, s Search, l *Tag) {
 
 // }
 
-func getNodeOnce(r *html.Node, s Search) {
+// func getNodeOnce(r *html.Node, s Search) {
 
-}
+// }
 
 func addInnerHtml(r *html.Node, l *Tag) {
 	b := &bytes.Buffer{}
@@ -267,36 +267,53 @@ func compareAttrandValue(attr html.Attribute, s SearchSpecifc) bool {
 }
 
 func compareWithSearch(attr html.Attribute, s Search) bool {
-
-	var search = func() bool {
-		// see if there is attributes that we want to look for
-		if len(s.Attr) > 0 {
-			// loop through out attr list
-			for _, val := range s.Attr {
-				// fmt.Println(val)
-				// if key exists
-				if val.Name == attr.Key {
-					// if value exists
-					if len(val.Value) > 0 {
-						// search through attributes
-						if words := strings.Fields(attr.Val); len(words) > 0 {
-							// splits atrribute values
-							for _, y := range words {
-								if val.Value == y {
-									return true
-								}
+	var attrSearch = func(as []Attribute) bool {
+		for _, val := range as {
+			// if key exists
+			if val.Name == attr.Key {
+				// if value exists
+				if len(val.Value) > 0 {
+					// search through attributes
+					if words := strings.Fields(attr.Val); len(words) > 0 {
+						// splits atrribute values
+						for _, y := range words {
+							if val.Value == y {
+								return true
 							}
 						}
-					} else {
-						return true
 					}
+				} else {
+					return true
 				}
 			}
 		}
 		return false
 	}
+	var search = func() bool {
 
-	if len(s.Tag) > 0 && len(s.Attr) == 0 {
+		if len(s.Selector) > 0 {
+			if attrSearch(s.Selector) {
+				if len(s.Attr) > 0 {
+
+					// return attrSearch(s.Attr)
+					return true
+				} else {
+					return true
+				}
+			}
+			return false
+		}
+
+		// for tag + attributes if it has branched off the tag way
+		// see if there is attributes that we want to look for
+		if len(s.Attr) > 0 {
+			return attrSearch(s.Attr)
+		}
+		return false
+	}
+
+	// returns true when only the tag is present
+	if len(s.Tag) > 0 && len(s.Attr) == 0 && len(s.Selector) == 0 {
 		return true
 	}
 

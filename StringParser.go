@@ -10,7 +10,7 @@ import (
 // Customisable search struct
 type Search struct {
 	Tag      string
-	Selector []Selectors
+	Selector []Attribute
 	Attr     []Attribute
 }
 type SearchBuilder struct {
@@ -18,7 +18,7 @@ type SearchBuilder struct {
 	Left, Right, SelectorState                              bool
 	Tracking                                                []string
 	Attr                                                    []Attribute
-	Selector                                                []Selectors
+	Selector                                                []Attribute
 	Tag                                                     string
 }
 
@@ -98,7 +98,12 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 	}
 
 	var selectorAppend = func() {
-		b.Selector = append(b.Selector, Selectors{Type: r, Name: Reverse(appendstring(b.Tracking))})
+		if r == "." {
+			r = "class"
+		} else {
+			r = "id"
+		}
+		b.Selector = append(b.Selector, Attribute{Name: r, Value: Reverse(appendstring(b.Tracking))})
 		b.Tracking = nil
 	}
 
