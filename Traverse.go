@@ -61,6 +61,8 @@ func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
 			fmt.Println(y.Node)
 		}
 	}
+
+	// return l.Node[
 }
 
 func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) {
@@ -72,7 +74,10 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 			h.NodeList = append(h.NodeList, y.Node)
 		}
 	}
-	m[0](h)
+	if len(m) > 0 {
+		m[0](h)
+	}
+
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
@@ -130,20 +135,3 @@ func getText(r *html.Node, b *bytes.Buffer) {
 		getText(c, b)
 	}
 }
-
-// func Find(h *html.Node, element string) []*html.Node {
-// 	list := make([]*html.Node, 0)
-
-// 	var f func(x *html.Node)
-// 	f = func(x *html.Node) {
-// 		if x.Type == html.ElementNode && x.Data == element {
-// 			list = append(list, x)
-// 		}
-
-// 		for c := x.FirstChild; c != nil; c = c.NextSibling {
-// 			f(c)
-// 		}
-// 	}
-// 	f(h)
-// 	return list
-// }
