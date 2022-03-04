@@ -295,6 +295,8 @@ func compareWithSearch(attr html.Attribute, s Search) bool {
 			if attrSearch(s.Selector) {
 				if len(s.Attr) > 0 {
 
+					// we need the node parent for this so we can
+					// continue with the search. this is partially broken
 					// return attrSearch(s.Attr)
 					return true
 				} else {
