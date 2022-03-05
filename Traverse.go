@@ -58,7 +58,7 @@ func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
 	AdvancedSearch(h.Node, *s, l)
 	for _, x := range l.Node {
 		for _, y := range x {
-			fmt.Println(y.Node)
+			h.NodeList = append(h.NodeList, y.Node)
 		}
 	}
 

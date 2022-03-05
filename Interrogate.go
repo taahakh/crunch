@@ -177,18 +177,19 @@ func compareWithSearch(attr html.Attribute, s Search, r *html.Node) bool {
 
 func searchAttr(attr html.Attribute, val string, num_selector ...int) bool {
 	words := strings.Fields(attr.Val)
-	if num_selector != nil {
-		if num_selector[0] != len(words) {
-			return false
-		}
-	}
+	// if num_selector != nil {
+	// 	if num_selector[0] != len(words) {
+	// 		return false
+	// 	}
+	// }
 
 	if len(words) > 0 {
 		for _, x := range words {
-			if x == val {
-				return true
+			if !(x == val) {
+				return false
 			}
 		}
+		return true
 	}
 	return false
 }
@@ -257,14 +258,18 @@ func strictCompare(r []html.Attribute, s Search) bool {
 }
 
 func strictAttrCompare(r *html.Node, s Search, l *Tag) {
+	count := len(s.Attr)
 	for _, x := range r.Attr {
 		for _, y := range s.Attr {
 			if y.Name == x.Key {
 				if y.Value == x.Val {
-					l.Node = append(l.Node, []Node{{Node: r}})
+					count--
 				}
 			}
 		}
+	}
+	if count == 0 {
+		l.Node = append(l.Node, []Node{{Node: r}})
 	}
 }
 
