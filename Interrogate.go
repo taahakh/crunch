@@ -175,8 +175,15 @@ func compareWithSearch(attr html.Attribute, s Search, r *html.Node) bool {
 	return search()
 }
 
-func searchAttr(attr html.Attribute, val string) bool {
-	if words := strings.Fields(attr.Val); len(words) > 0 {
+func searchAttr(attr html.Attribute, val string, num_selector ...int) bool {
+	words := strings.Fields(attr.Val)
+	if num_selector != nil {
+		if num_selector[0] != len(words) {
+			return false
+		}
+	}
+
+	if len(words) > 0 {
 		for _, x := range words {
 			if x == val {
 				return true
@@ -191,6 +198,10 @@ func strictCompare(r []html.Attribute, s Search) bool {
 
 	s_count = len(s.Selector)
 	a_count = len(s.Attr)
+	num_selector := s_count
+
+	// fmt.Println("s: ", s_count)
+	// fmt.Println("a: ", a_count)
 
 	if s_count > 0 && !(s_count+a_count == len(r)) {
 		return false
@@ -206,7 +217,7 @@ func strictCompare(r []html.Attribute, s Search) bool {
 				// if the selector has a value associated with it
 				// so the class name/id name
 				if len(y.Value) > 0 {
-					if searchAttr(x, y.Value) {
+					if searchAttr(x, y.Value, num_selector) {
 						s_count--
 					}
 					// once we have found it we found the key-pair or not we want to continue
