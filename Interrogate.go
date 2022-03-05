@@ -14,7 +14,7 @@ type Attribute struct {
 }
 
 type NodeList struct {
-	Node []*html.Node
+	Node []Node
 }
 
 type Node struct {
@@ -371,10 +371,13 @@ func qS(r []html.Attribute, s Search) bool {
 
 // 	return numToBeFound == 0
 // }
+func (n *NodeList) append(r *html.Node) {
+	n.Node = append(n.Node, Node{r})
+}
 
 func qSCompare(r *Node, s Search, l *NodeList) {
 	if qS(r.Node.Attr, s) {
-		l.Node = append(l.Node, r.Node)
+		l.append(r.Node)
 	}
 }
 
@@ -400,8 +403,8 @@ func querySearch(r *Node, s Search, l *NodeList) {
 
 }
 
-// func (n *Node) Text () string {
-// 	b := &bytes.Buffer{}
-// 	getText(n.N, b)
-// 	return b.String()
-// }
+func (n *Node) Text() string {
+	b := &bytes.Buffer{}
+	getText(n.Node, b)
+	return b.String()
+}

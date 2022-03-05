@@ -17,9 +17,10 @@ var (
 // Simple struct to store relevant search data for the document
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
 type HTMLDocument struct {
-	Main     *Node
-	Node     *html.Node   //HTML DOC Node
-	NodeList []*html.Node // Current search result
+	Main        *Node
+	Node        *html.Node   //HTML DOC Node
+	NodeList    []*html.Node // Current search result
+	NewNodeList NodeList
 }
 
 type DocumentGroup struct {
@@ -87,7 +88,7 @@ func (h *HTMLDocument) QuerySearch(search string) {
 	// querySearch(h.Node, *s, nl)
 	querySearch(h.Main, *s, nl)
 
-	h.NodeList = nl.Node
+	h.NewNodeList.Node = nl.Node
 	// return nl.Node
 }
 
