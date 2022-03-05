@@ -1,0 +1,112 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/taahakh/speed"
+)
+
+func main() {
+	fmt.Println("hello world")
+	wow := speed.GetTextbig()
+	// tp, err := speed.Parse(strings.NewReader(wow))
+	// if err != nil {
+	// 	log.Fatal("it broken")
+	// }
+	doc := speed.CreateHTMLDocument(strings.NewReader(wow))
+	// doc.Find("link", func(e *speed.HTMLDocument) {
+	// 	// fmt.Println(e.NodeList)
+	// 	e.GetAttr("href")
+	// 	// fmt.Println(a)
+	// })
+
+	// doc.FindTag("div", func(e *speed.HTMLDocument) {
+	// 	// for _, x := range e.NodeList {
+	// 	// 	b := &bytes.Buffer{}
+	// 	// 	fmt.Println(speed.Text(x, b))
+	// 	// }
+	// 	// fmt.Println(e.NodeList)
+	// })
+
+	// time1 := time.Now()
+
+	// doc.Find("[crossorigin, href='style.css']")
+
+	// doc.FindStrictly("div.des[href='a']")
+	// for _, x := range doc.NodeList {
+	// 	fmt.Println("-->", x)
+	// }
+
+	str := "[class='des', href='a', rel='asd']"
+	fmt.Println("------------STRICT---------------------")
+	// doc.FindStrictly("[class='info-container extra', href='style.css']")
+	doc.FindStrictly(str)
+	for _, x := range doc.NodeList {
+		fmt.Println("-->", x)
+	}
+	doc.NodeList = nil
+	fmt.Println("----------------FIND-----------------")
+
+	doc.Find(str)
+
+	for _, x := range doc.NodeList {
+		fmt.Println("-->", x)
+	}
+	doc.NodeList = nil
+
+	// fmt.Println("---------------------------------")
+	// doc.Find("[class='info-container extra', href]")
+	// for _, x := range doc.NodeList {
+	// 	fmt.Println("-->", x)
+	// }
+
+	// fmt.Println(time.Since(time1))
+	// l := doc.Attr()
+	// for a, b := range l {
+	// 	fmt.Println(a, b)
+	// }
+	// doc.GetAttr("href")
+	// fmt.Println(list)
+	// for _, x := range list {
+	// 	fmt.Println(x.Attr)
+	// }
+	// doc.Find("div")
+
+	// speed.SearchTag(tp, "div")
+
+	// store := &speed.Tag{}
+
+	// // speed.FindAll(tp, "div", &store)
+	// // fmt.Println(store)
+	// // for _, v := range store.Attr {
+	// // 	fmt.Println("Value: ", v)
+	// // }
+
+	// to := speed.SearchSpecifc{
+	// 	// Tag: "link",
+	// 	Attr: map[string]string{
+	// 		"class": "waga john",
+	// 		"id":    "info-index-title",
+	// 	},
+	// }
+
+	// more := speed.Tag{}
+	// speed.GetTags(tp, to, &more)
+
+	// for _, v := range more.Attr {
+	// 	fmt.Println("Value: ", v)
+	// }
+
+	// fmt.Println(more.Text[1])
+	// // time1 := time.Now()
+	// s := speed.FinderParser("div[class='title-separation']")
+	// speed.AdvancedSearch(tp, *s, store)
+	// for _, value := range store.Node {
+	// 	for _, x := range value {
+	// 		fmt.Println(x.Node.Attr)
+	// 	}
+	// }
+	// fmt.Println(store.Node)
+
+}
