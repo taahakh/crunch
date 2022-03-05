@@ -150,8 +150,8 @@ func compareWithSearch(attr html.Attribute, s Search, r *html.Node) bool {
 					// we need the node parent for this so we can
 					// continue with the search. this is partially broken
 					// return attrSearch(s.Attr)
-					// return compareWithAttributeList(r, s.Attr)
-					return true
+					return compareWithAttributeList(r, s.Attr)
+					// return true
 				} else {
 					return true
 				}
@@ -187,49 +187,57 @@ func searchAttr(attr html.Attribute, val string) bool {
 }
 
 func strictCompare(r []html.Attribute, s Search) bool {
-	var s_count, a_count, s_counter, a_counter int
+	var s_count, a_count int
 
 	s_count = len(s.Selector)
 	a_count = len(s.Attr)
-	s_counter = 0
-	a_counter = 0
+
+	if s_count > 0 && !(s_count+a_count == len(r)) {
+		return false
+	}
 
 	// iterating through the nodes attr list
 	for _, x := range r {
 		// iterating through the selector list we have chosen
 		for _, y := range s.Selector {
+			// fmt.Println(y)
 			// checking if the attr selector exists class/id
 			if y.Name == x.Key {
 				// if the selector has a value associated with it
 				// so the class name/id name
 				if len(y.Value) > 0 {
 					if searchAttr(x, y.Value) {
-						s_counter++
+						s_count--
 					}
 					// once we have found it we found the key-pair or not we want to continue
 					continue
 				} else {
 					// this is where there is no value associated with the key
-					s_counter++
+					s_count--
 				}
 			}
 		}
 
 		// we going to check if attr list has been given
 		if a_count > 0 {
-			// loop through the attributes we want to strictly find
-			for _, z := range s.Attr {
-				if searchAttr(x, z.Value) {
-					a_counter++
+			//  we check if the right length of attributes in html
+			// and search attributes/selectors are the same
+			if len(r) == len(s.Selector)+len(s.Attr) {
+				// loop through the attributes we want to strictly find
+				for _, z := range s.Attr {
+					// if we found the correct keypair then we increment the counter
+					if searchAttr(x, z.Value) {
+						a_count--
+					}
 				}
 			}
+
 		}
 
 	}
 
-	// if the numer of selectors and attr with the right values are true
-	// then return true
-	if a_count == a_counter && s_count == s_counter {
+	//  we are decrementing the count and it should not be higher nor lower than zero
+	if s_count == 0 && a_count == 0 {
 		return true
 	} else {
 		return false
@@ -257,6 +265,7 @@ func findStrictlySearch(r *html.Node, s Search, l *Tag) {
 				strictSearch(r, s, l)
 			}
 		} else if isSelector {
+			// runs when only selector present
 			strictSearch(r, s, l)
 		}
 	}

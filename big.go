@@ -104,6 +104,13 @@ var htmlText string = `
 
     <span class="title-separation"></span>
     <a class="des" href="a">sadasd</a>
+    <a id="sad" class="des" href="a">sadasd</a>
+    <a class="des" href="a" rel="asd">sadasd</a>
+    <div class="des" href="a">sadasd</a>
+    <a href="a">as2323232</a>
+    <div class="ingo"></div>
+    <div class="ingo" anon="1"></div>
+
 
     <div class="info-container">
 
