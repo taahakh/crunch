@@ -84,8 +84,8 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 func (h *HTMLDocument) QuerySearch(search string) {
 	s := FinderParser(search)
 	nl := &NodeList{}
-	querySearch(h.Node, *s, nl)
 	// querySearch(h.Node, *s, nl)
+	querySearch(h.Main, *s, nl)
 
 	h.NodeList = nl.Node
 	// return nl.Node

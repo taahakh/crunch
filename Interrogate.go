@@ -333,28 +333,28 @@ func qS(r []html.Attribute, s Search) bool {
 	return numToBeFound == 0
 }
 
-func qSCompare(r *html.Node, s Search, l *NodeList) {
-	if qS(r.Attr, s) {
-		l.Node = append(l.Node, r)
-	}
-}
+// func qSCompare(r *html.Node, s Search, l *NodeList) {
+// 	if qS(r.Attr, s) {
+// 		l.Node = append(l.Node, r)
+// 	}
+// }
 
-func querySearch(r *html.Node, s Search, l *NodeList) {
-	if r.Type == html.ElementNode {
+// func querySearch(r *html.Node, s Search, l *NodeList) {
+// 	if r.Type == html.ElementNode {
 
-		if len(s.Tag) > 0 {
-			if s.Tag == r.Data {
-				qSCompare(r, s, l)
-			}
-		} else if len(s.Attr) > 0 {
-			qSCompare(r, s, l)
-		}
+// 		if len(s.Tag) > 0 {
+// 			if s.Tag == r.Data {
+// 				qSCompare(r, s, l)
+// 			}
+// 		} else if len(s.Attr) > 0 {
+// 			qSCompare(r, s, l)
+// 		}
 
-	}
-	for c := r.FirstChild; c != nil; c = c.NextSibling {
-		querySearch(c, s, l)
-	}
-}
+// 	}
+// 	for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 		querySearch(c, s, l)
+// 	}
+// }
 
 // func qS(r []html.Attribute, s Search) bool {
 
@@ -372,33 +372,33 @@ func querySearch(r *html.Node, s Search, l *NodeList) {
 // 	return numToBeFound == 0
 // }
 
-// func qSCompare(r *Node, s Search, l *NodeList) {
-// 	if qS(r.Node.Attr, s) {
-// 		l.Node = append(l.Node, r.Node)
-// 	}
-// }
+func qSCompare(r *Node, s Search, l *NodeList) {
+	if qS(r.Node.Attr, s) {
+		l.Node = append(l.Node, r.Node)
+	}
+}
 
-// func querySearch(r *Node, s Search, l *NodeList) {
-// 	// fmt.Println(r)
-// 	if r.Node.Type == html.ElementNode {
+func querySearch(r *Node, s Search, l *NodeList) {
+	// fmt.Println(r)
+	if r.Node.Type == html.ElementNode {
 
-// 		if len(s.Tag) > 0 {
-// 			if s.Tag == r.Node.Data {
-// 				qSCompare(r, s, l)
-// 			}
-// 		} else if len(s.Attr) > 0 {
-// 			qSCompare(r, s, l)
-// 		}
+		if len(s.Tag) > 0 {
+			if s.Tag == r.Node.Data {
+				qSCompare(r, s, l)
+			}
+		} else if len(s.Attr) > 0 {
+			qSCompare(r, s, l)
+		}
 
-// 	}
+	}
 
-// 	for c := r.Node.FirstChild; c != nil; c = c.NextSibling {
-// 		x := r
-// 		x.Node = c
-// 		querySearch(x, s, l)
-// 	}
+	for c := r.Node.FirstChild; c != nil; c = c.NextSibling {
+		x := r
+		x.Node = c
+		querySearch(x, s, l)
+	}
 
-// }
+}
 
 // func (n *Node) Text () string {
 // 	b := &bytes.Buffer{}
