@@ -110,7 +110,7 @@ var htmlText string = `
     <a href="a">as2323232</a>
     <div class="ingo"></div>
     <div class="ingo" anon="1"></div>
-
+    <div class="info-container extra"></>
 
     <div class="info-container">
 

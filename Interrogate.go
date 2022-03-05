@@ -245,6 +245,18 @@ func strictCompare(r []html.Attribute, s Search) bool {
 
 }
 
+func strictAttrCompare(r *html.Node, s Search, l *Tag) {
+	for _, x := range r.Attr {
+		for _, y := range s.Attr {
+			if y.Name == x.Key {
+				if y.Value == x.Val {
+					l.Node = append(l.Node, []Node{{Node: r}})
+				}
+			}
+		}
+	}
+}
+
 func strictSearch(r *html.Node, s Search, l *Tag) {
 	if strictCompare(r.Attr, s) {
 		l.Node = append(l.Node, []Node{{Node: r}})
@@ -267,6 +279,8 @@ func findStrictlySearch(r *html.Node, s Search, l *Tag) {
 		} else if isSelector {
 			// runs when only selector present
 			strictSearch(r, s, l)
+		} else {
+			strictAttrCompare(r, s, l)
 		}
 	}
 
