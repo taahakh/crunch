@@ -8,6 +8,13 @@ import (
 	"golang.org/x/net/html"
 )
 
+type Tag struct {
+	Name string
+	Text [][]string
+	Attr [][]Attribute
+	Node [][]Node
+}
+
 type TagList struct {
 	Tags map[string][]Tag
 }

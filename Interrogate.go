@@ -13,11 +13,8 @@ type Attribute struct {
 	Value string
 }
 
-type Tag struct {
-	Name string
-	Text [][]string
-	Attr [][]Attribute
-	Node [][]Node
+type NodeList struct {
+	Node []*html.Node
 }
 
 type Node struct {
@@ -319,3 +316,92 @@ func Parse(r io.Reader) (*html.Node, error) {
 func EasyParse(s *[]byte) (*html.Node, error) {
 	return html.Parse(bytes.NewReader(*s))
 }
+
+func qS(r []html.Attribute, s Search) bool {
+
+	numToBeFound := len(s.Attr)
+	for _, x := range r {
+		for _, y := range s.Attr {
+			if y.Name == x.Key {
+				if y.Value == x.Val {
+					numToBeFound--
+				}
+			}
+		}
+	}
+
+	return numToBeFound == 0
+}
+
+func qSCompare(r *html.Node, s Search, l *NodeList) {
+	if qS(r.Attr, s) {
+		l.Node = append(l.Node, r)
+	}
+}
+
+func querySearch(r *html.Node, s Search, l *NodeList) {
+	if r.Type == html.ElementNode {
+
+		if len(s.Tag) > 0 {
+			if s.Tag == r.Data {
+				qSCompare(r, s, l)
+			}
+		} else if len(s.Attr) > 0 {
+			qSCompare(r, s, l)
+		}
+
+	}
+	for c := r.FirstChild; c != nil; c = c.NextSibling {
+		querySearch(c, s, l)
+	}
+}
+
+// func qS(r []html.Attribute, s Search) bool {
+
+// 	numToBeFound := len(s.Attr)
+// 	for _, x := range r {
+// 		for _, y := range s.Attr {
+// 			if y.Name == x.Key {
+// 				if y.Value == x.Val {
+// 					numToBeFound--
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return numToBeFound == 0
+// }
+
+// func qSCompare(r *Node, s Search, l *NodeList) {
+// 	if qS(r.Node.Attr, s) {
+// 		l.Node = append(l.Node, r.Node)
+// 	}
+// }
+
+// func querySearch(r *Node, s Search, l *NodeList) {
+// 	// fmt.Println(r)
+// 	if r.Node.Type == html.ElementNode {
+
+// 		if len(s.Tag) > 0 {
+// 			if s.Tag == r.Node.Data {
+// 				qSCompare(r, s, l)
+// 			}
+// 		} else if len(s.Attr) > 0 {
+// 			qSCompare(r, s, l)
+// 		}
+
+// 	}
+
+// 	for c := r.Node.FirstChild; c != nil; c = c.NextSibling {
+// 		x := r
+// 		x.Node = c
+// 		querySearch(x, s, l)
+// 	}
+
+// }
+
+// func (n *Node) Text () string {
+// 	b := &bytes.Buffer{}
+// 	getText(n.N, b)
+// 	return b.String()
+// }

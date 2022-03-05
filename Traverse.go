@@ -17,8 +17,9 @@ var (
 // Simple struct to store relevant search data for the document
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
 type HTMLDocument struct {
-	Node     *html.Node
-	NodeList []*html.Node
+	Main     *Node
+	Node     *html.Node   //HTML DOC Node
+	NodeList []*html.Node // Current search result
 }
 
 type DocumentGroup struct {
@@ -31,7 +32,7 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	if err != nil {
 		fmt.Println("something")
 	}
-	return HTMLDocument{Node: doc}
+	return HTMLDocument{Node: doc, Main: &Node{doc}}
 }
 
 func (h *HTMLDocument) FindTag(element string, m ...func(doc *HTMLDocument)) []*html.Node {
@@ -80,6 +81,16 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 
 }
 
+func (h *HTMLDocument) QuerySearch(search string) {
+	s := FinderParser(search)
+	nl := &NodeList{}
+	querySearch(h.Node, *s, nl)
+	// querySearch(h.Node, *s, nl)
+
+	h.NodeList = nl.Node
+	// return nl.Node
+}
+
 func (h *HTMLDocument) Attr() []map[string]string {
 	list := make([]map[string]string, 0)
 	for _, x := range h.NodeList {
@@ -119,6 +130,12 @@ func getAttr(r []*html.Node, once bool, elem []string) []string {
 		}
 	}
 	return list
+}
+
+func (h *HTMLDocument) PrintNodes() {
+	for _, x := range h.NodeList {
+		fmt.Println(x)
+	}
 }
 
 func Text(r *html.Node) string {

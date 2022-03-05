@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/taahakh/speed"
 )
@@ -38,21 +39,26 @@ func main() {
 	// 	fmt.Println("-->", x)
 	// }
 
-	str := "[class='des', href='a', rel='asd']"
-	fmt.Println("------------STRICT---------------------")
-	// doc.FindStrictly("[class='info-container extra', href='style.css']")
-	doc.FindStrictly(str)
-	for _, x := range doc.NodeList {
-		fmt.Println("-->", x)
-	}
-	doc.NodeList = nil
+	str := "[class='des']"
+	// fmt.Println("------------STRICT---------------------")
+	// // doc.FindStrictly("[class='info-container extra', href='style.css']")
+	// doc.FindStrictly(str)
+	// for _, x := range doc.NodeList {
+	// 	fmt.Println("-->", x)
+	// }
+	// doc.NodeList = nil
 	fmt.Println("----------------FIND-----------------")
 
+	time1 := time.Now()
 	doc.Find(str)
+	fmt.Println(time.Since(time1))
 
 	for _, x := range doc.NodeList {
+		// fmt.Println("-->", speed.Text(x))
 		fmt.Println("-->", x)
+
 	}
+
 	doc.NodeList = nil
 
 	// fmt.Println("---------------------------------")
