@@ -53,6 +53,9 @@ func FinderParser(s string) *Search {
 	build.Left = false
 	build.Right = false
 	build.KeyPair = false
+	if len(s) == 0 {
+		log.Println("string empty")
+	}
 	finderParser(lol, 0, build)
 	checkBuild(build)
 	if len(build.Tracking) > 0 {

@@ -8,20 +8,10 @@ import (
 	"golang.org/x/net/html"
 )
 
-var (
-	f func(x *html.Node)
-)
-
 // Node is the HTML document
 // Nodelist are the pointer list to the nodes that the tag/selector has been searched for
 // Simple struct to store relevant search data for the document
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
-// type HTMLDocument struct {
-// 	Main        *Node
-// 	Node        *html.Node   //HTML DOC Node
-// 	NodeList    []*html.Node // Current search result
-// 	NewNodeList NodeList
-// }
 
 type HTMLDocument struct {
 	Node     *Node    //HTML DOC Node
@@ -61,10 +51,10 @@ func (h *HTMLDocument) FindTag(element string, m ...func(doc *HTMLDocument)) []*
 	return []*html.Node{}
 }
 
-func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
+func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) *NodeList {
 	s := FinderParser(search)
 	AdvancedSearch(h.Node, *s, &h.NodeList)
-
+	return &h.NodeList
 }
 
 func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) {
@@ -77,16 +67,16 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 
 }
 
-func (h *HTMLDocument) QuerySearch(search string) {
+func (h *HTMLDocument) QuerySearch(search string) *NodeList {
+	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-
 	querySearch(h.Node, *s, &h.NodeList)
-
+	return &h.NodeList
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
 	list := make([]map[string]string, 0)
-	for _, x := range h.NodeList.Node {
+	for _, x := range h.NodeList.Nodes {
 		t := make(map[string]string, 0)
 		for _, y := range x.Node.Attr {
 			t[y.Key] = y.Val
@@ -94,6 +84,15 @@ func (h *HTMLDocument) Attr() []map[string]string {
 		list = append(list, t)
 	}
 
+	return list
+}
+
+func (n *Node) Attr() map[string]string {
+	defer Catch_Panic()
+	list := make(map[string]string)
+	for _, x := range n.Node.Attr {
+		list[x.Key] = x.Val
+	}
 	return list
 }
 
@@ -110,7 +109,7 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	if once {
 		list = make([]string, 0)
 	}
-	for _, x := range r.Node {
+	for _, x := range r.Nodes {
 		for _, y := range x.Node.Attr {
 			for _, z := range elem {
 				if y.Key == z {
@@ -125,10 +124,16 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	return list
 }
 
-func (h *HTMLDocument) PrintNodes() {
-	for _, x := range h.NodeList.Node {
-		fmt.Println(x)
+func (h *HTMLDocument) PrintNodeList() {
+	for _, x := range h.NodeList.Nodes {
+		fmt.Println(x.Node)
 	}
+}
+
+func (n *Node) Text() string {
+	b := &bytes.Buffer{}
+	getText(n.Node, b)
+	return b.String()
 }
 
 func Text(r *html.Node) string {

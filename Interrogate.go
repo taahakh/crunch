@@ -14,7 +14,7 @@ type Attribute struct {
 }
 
 type NodeList struct {
-	Node []Node
+	Nodes []Node
 }
 
 type Node struct {
@@ -33,13 +33,14 @@ func AdvancedSearch(r *Node, s Search, l *NodeList) {
 		for i := 0; i < len(r.Node.Attr); i++ {
 			attr := r.Node.Attr[i]
 			if compareWithSearch(attr, s, r) {
-				temp.Node = append(temp.Node, *r)
+				// temp.append(r.Node)
+				temp.Nodes = append(temp.Nodes, *r)
 			}
 		}
 
-		if len(temp.Node) > 0 {
-			l.Node = append(l.Node, temp.Node...)
-			temp.Node = nil
+		if len(temp.Nodes) > 0 {
+			l.Nodes = append(l.Nodes, temp.Nodes...)
+			temp.Nodes = nil
 		}
 	}
 
@@ -53,7 +54,7 @@ func AdvancedSearch(r *Node, s Search, l *NodeList) {
 					if len(s.Attr) > 0 || len(s.Selector) > 0 {
 						search()
 					} else { // appends all named tag that has been chosen
-						l.Node = append(l.Node, *r)
+						l.Nodes = append(l.Nodes, *r)
 					}
 				}
 			} else { // used if only attr are present for the search
@@ -339,7 +340,7 @@ func qS(r []html.Attribute, s Search) bool {
 }
 
 func (n *NodeList) append(r *html.Node) {
-	n.Node = append(n.Node, Node{r})
+	n.Nodes = append(n.Nodes, Node{r})
 }
 
 func qSCompare(r *Node, s Search, l *NodeList) {
@@ -367,10 +368,4 @@ func querySearch(r *Node, s Search, l *NodeList) {
 		querySearch(x, s, l)
 	}
 
-}
-
-func (n *Node) Text() string {
-	b := &bytes.Buffer{}
-	getText(n.Node, b)
-	return b.String()
 }

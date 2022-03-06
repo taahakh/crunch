@@ -1,5 +1,7 @@
 package speed
 
+import "log"
+
 // import (
 // 	"encoding/csv"
 // 	"log"
@@ -14,3 +16,10 @@ const (
 // type Ip struct {
 // 	ip, header string
 // }
+
+// this function NEEDS to be called with defer
+func Catch_Panic() {
+	if err := recover(); err != nil {
+		log.Println("Recovering from panic. Error --> ", err)
+	}
+}
