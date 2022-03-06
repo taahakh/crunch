@@ -55,14 +55,18 @@ func (h *HTMLDocument) FindTag(element string, m ...func(doc *HTMLDocument)) []*
 
 func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
 	s := FinderParser(search)
-	l := &Tag{}
+	// l := &Tag{}
 	// fmt.Println(FinderParser(search))
-	AdvancedSearch(h.Node, *s, l)
+	l := &NodeList{}
+	AdvancedSearch(h.Main, *s, l)
 	for _, x := range l.Node {
-		for _, y := range x {
-			h.NodeList = append(h.NodeList, y.Node)
-		}
+		// for _, y := range x {
+		h.NodeList = append(h.NodeList, x.Node)
+		// }
 	}
+	// fmt.Println(h.NodeList)
+	// fmt.Println(h.NewNodeList)
+	// fmt.Println(l)
 
 	// return l.Node[
 }
