@@ -16,11 +16,16 @@ var (
 // Nodelist are the pointer list to the nodes that the tag/selector has been searched for
 // Simple struct to store relevant search data for the document
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
+// type HTMLDocument struct {
+// 	Main        *Node
+// 	Node        *html.Node   //HTML DOC Node
+// 	NodeList    []*html.Node // Current search result
+// 	NewNodeList NodeList
+// }
+
 type HTMLDocument struct {
-	Main        *Node
-	Node        *html.Node   //HTML DOC Node
-	NodeList    []*html.Node // Current search result
-	NewNodeList NodeList
+	Node     *Node    //HTML DOC Node
+	NodeList NodeList // Current search result
 }
 
 type DocumentGroup struct {
@@ -33,53 +38,39 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	if err != nil {
 		fmt.Println("something")
 	}
-	return HTMLDocument{Node: doc, Main: &Node{doc}}
+	return HTMLDocument{Node: &Node{Node: doc}}
 }
 
 func (h *HTMLDocument) FindTag(element string, m ...func(doc *HTMLDocument)) []*html.Node {
-	f = func(x *html.Node) {
-		if x.Type == html.ElementNode && x.Data == element {
-			h.NodeList = append(h.NodeList, x)
-		}
+	// f = func(x *html.Node) {
+	// 	if x.Type == html.ElementNode && x.Data == element {
+	// 		h.NodeList = append(h.NodeList, x)
+	// 	}
 
-		for c := x.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
-	}
-	f(h.Node)
-	for _, x := range m {
-		x(h)
-	}
-	return h.NodeList
+	// 	for c := x.FirstChild; c != nil; c = c.NextSibling {
+	// 		f(c)
+	// 	}
+	// }
+	// f(h.Node)
+	// for _, x := range m {
+	// 	x(h)
+	// }
+	// return h.NodeList
+
+	fmt.Println(element)
+	return []*html.Node{}
 }
 
 func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) {
 	s := FinderParser(search)
-	// l := &Tag{}
-	// fmt.Println(FinderParser(search))
-	l := &NodeList{}
-	AdvancedSearch(h.Main, *s, l)
-	for _, x := range l.Node {
-		// for _, y := range x {
-		h.NodeList = append(h.NodeList, x.Node)
-		// }
-	}
-	// fmt.Println(h.NodeList)
-	// fmt.Println(h.NewNodeList)
-	// fmt.Println(l)
+	AdvancedSearch(h.Node, *s, &h.NodeList)
 
-	// return l.Node[
 }
 
 func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) {
 	s := FinderParser(search)
-	l := &Tag{}
-	findStrictly(h.Node, *s, l)
-	for _, x := range l.Node {
-		for _, y := range x {
-			h.NodeList = append(h.NodeList, y.Node)
-		}
-	}
+	findStrictly(h.Node, *s, &h.NodeList)
+
 	if len(m) > 0 {
 		m[0](h)
 	}
@@ -88,19 +79,16 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 
 func (h *HTMLDocument) QuerySearch(search string) {
 	s := FinderParser(search)
-	nl := &NodeList{}
-	// querySearch(h.Node, *s, nl)
-	querySearch(h.Main, *s, nl)
 
-	h.NewNodeList.Node = nl.Node
-	// return nl.Node
+	querySearch(h.Node, *s, &h.NodeList)
+
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
 	list := make([]map[string]string, 0)
-	for _, x := range h.NodeList {
+	for _, x := range h.NodeList.Node {
 		t := make(map[string]string, 0)
-		for _, y := range x.Attr {
+		for _, y := range x.Node.Attr {
 			t[y.Key] = y.Val
 		}
 		list = append(list, t)
@@ -117,13 +105,13 @@ func (h *HTMLDocument) GetAttrOnce(elem ...string) string {
 	return getAttr(h.NodeList, true, elem)[0]
 }
 
-func getAttr(r []*html.Node, once bool, elem []string) []string {
+func getAttr(r NodeList, once bool, elem []string) []string {
 	var list []string
 	if once {
 		list = make([]string, 0)
 	}
-	for _, x := range r {
-		for _, y := range x.Attr {
+	for _, x := range r.Node {
+		for _, y := range x.Node.Attr {
 			for _, z := range elem {
 				if y.Key == z {
 					if once {
@@ -138,7 +126,7 @@ func getAttr(r []*html.Node, once bool, elem []string) []string {
 }
 
 func (h *HTMLDocument) PrintNodes() {
-	for _, x := range h.NodeList {
+	for _, x := range h.NodeList.Node {
 		fmt.Println(x)
 	}
 }

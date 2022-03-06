@@ -21,55 +21,6 @@ type Node struct {
 	Node *html.Node
 }
 
-// Not efficient and takes in Search struct as parameters to automatically search for the correct Nodes
-// func AdvancedSearch(r *html.Node, s Search, l *Tag) {
-
-// 	// Search function that carries out checks for attributes
-// 	// appends to node struct to then be appended to another struct called Tag
-// 	// Tag keep all data associated to the to this one struct
-// 	// Search and Tag works on per HTML Doc basis
-
-// 	var search = func() {
-// 		temp := []Node{}
-// 		for i := 0; i < len(r.Attr); i++ {
-// 			attr := r.Attr[i]
-// 			if compareWithSearch(attr, s, r) {
-// 				temp = append(temp, Node{Node: r})
-// 			}
-// 		}
-
-// 		if len(temp) > 0 {
-// 			l.Node = append(l.Node, temp)
-// 			temp = nil
-// 		}
-// 	}
-
-// 	func() {
-// 		if r.Type == html.ElementNode {
-// 			// checks if a tag exists
-// 			if len(s.Tag) > 0 {
-// 				// check if the tag equals to the data
-// 				if r.Data == s.Tag {
-// 					// checks if the tag is accompanied with attributes/ selectors
-// 					if len(s.Attr) > 0 || len(s.Selector) > 0 {
-// 						search()
-// 					} else { // appends all named tag that has been chosen
-// 						l.Node = append(l.Node, []Node{{Node: r}})
-// 					}
-// 				}
-// 			} else { // used if only attr are present for the search
-// 				search()
-// 			}
-// 		}
-
-// 		// doing a depth first search
-// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-// 			AdvancedSearch(c, s, l)
-// 		}
-// 	}()
-
-// }
-
 func AdvancedSearch(r *Node, s Search, l *NodeList) {
 
 	// Search function that carries out checks for attributes
@@ -302,9 +253,9 @@ func strictCompare(r []html.Attribute, s Search) bool {
 
 }
 
-func strictAttrCompare(r *html.Node, s Search, l *Tag) {
+func strictAttrCompare(r *Node, s Search, l *NodeList) {
 	count := len(s.Attr)
-	for _, x := range r.Attr {
+	for _, x := range r.Node.Attr {
 		for _, y := range s.Attr {
 			if y.Name == x.Key {
 				if y.Value == x.Val {
@@ -314,27 +265,29 @@ func strictAttrCompare(r *html.Node, s Search, l *Tag) {
 		}
 	}
 	if count == 0 {
-		l.Node = append(l.Node, []Node{{Node: r}})
+		// l.Node = append(l.Node, []Node{{Node: r}})
+		l.append(r.Node)
 	}
 }
 
-func strictSearch(r *html.Node, s Search, l *Tag) {
-	if strictCompare(r.Attr, s) {
-		l.Node = append(l.Node, []Node{{Node: r}})
+func strictSearch(r *Node, s Search, l *NodeList) {
+	if strictCompare(r.Node.Attr, s) {
+		// l.Node = append(l.Node, )
+		l.append(r.Node)
 	}
 
 }
 
-func findStrictlySearch(r *html.Node, s Search, l *Tag) {
+func findStrictlySearch(r *Node, s Search, l *NodeList) {
 	isTag := len(s.Tag) > 0
 	isSelector := len(s.Selector) > 0
 
 	// check if it's an element node
-	if r.Type == html.ElementNode {
+	if r.Node.Type == html.ElementNode {
 		// check if it equals the tag
 		if isTag {
 			// current node is equal to our tag?
-			if r.Data == s.Tag {
+			if r.Node.Data == s.Tag {
 				strictSearch(r, s, l)
 			}
 		} else if isSelector {
@@ -345,13 +298,15 @@ func findStrictlySearch(r *html.Node, s Search, l *Tag) {
 		}
 	}
 
-	for c := r.FirstChild; c != nil; c = c.NextSibling {
-		findStrictlySearch(c, s, l)
+	for c := r.Node.FirstChild; c != nil; c = c.NextSibling {
+		x := r
+		x.Node = c
+		findStrictlySearch(x, s, l)
 	}
 
 }
 
-func findStrictly(r *html.Node, s Search, l *Tag) {
+func findStrictly(r *Node, s Search, l *NodeList) {
 	findStrictlySearch(r, s, l)
 }
 
