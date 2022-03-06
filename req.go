@@ -12,7 +12,7 @@ var (
 
 	MinHeaderList = make(map[string]string)
 	HeaderList    = make([]Headers, 0)
-	DocumentList  = make([]Doc, 0)
+	// DocumentList  = make([]Doc, 0)
 	// TagTrackerList = make([]TagTracker, 0)
 )
 

@@ -72,21 +72,21 @@ func AdvancedSearch(r *Node, s Search, l *NodeList) {
 
 }
 
-func compareAttrandValue(attr html.Attribute, s SearchSpecifc) bool {
-	if val, ok := s.Attr[attr.Key]; ok {
-		if words := strings.Fields(attr.Val); len(words) > 1 {
-			for _, x := range words {
-				if x == val {
-					return true
-				}
-			}
-		}
-		if attr.Val == val {
-			return true
-		}
-	}
-	return false
-}
+// func compareAttrandValue(attr html.Attribute, s SearchSpecifc) bool {
+// 	if val, ok := s.Attr[attr.Key]; ok {
+// 		if words := strings.Fields(attr.Val); len(words) > 1 {
+// 			for _, x := range words {
+// 				if x == val {
+// 					return true
+// 				}
+// 			}
+// 		}
+// 		if attr.Val == val {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func compareWithAttributeList(r *Node, a []Attribute) bool {
 	for _, x := range a {
