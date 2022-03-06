@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -31,26 +32,6 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	return HTMLDocument{Node: &Node{Node: doc}}
 }
 
-func (h *HTMLDocument) FindTag(element string, m ...func(doc *HTMLDocument)) []*html.Node {
-	// f = func(x *html.Node) {
-	// 	if x.Type == html.ElementNode && x.Data == element {
-	// 		h.NodeList = append(h.NodeList, x)
-	// 	}
-
-	// 	for c := x.FirstChild; c != nil; c = c.NextSibling {
-	// 		f(c)
-	// 	}
-	// }
-	// f(h.Node)
-	// for _, x := range m {
-	// 	x(h)
-	// }
-	// return h.NodeList
-
-	fmt.Println(element)
-	return []*html.Node{}
-}
-
 func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) *NodeList {
 	s := FinderParser(search)
 	AdvancedSearch(h.Node, *s, &h.NodeList)
@@ -75,6 +56,7 @@ func (h *HTMLDocument) QuerySearch(search string) *NodeList {
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
+
 	list := make([]map[string]string, 0)
 	for _, x := range h.NodeList.Nodes {
 		t := make(map[string]string, 0)
@@ -88,7 +70,7 @@ func (h *HTMLDocument) Attr() []map[string]string {
 }
 
 func (n *Node) Attr() map[string]string {
-	defer Catch_Panic()
+
 	list := make(map[string]string)
 	for _, x := range n.Node.Attr {
 		list[x.Key] = x.Val
@@ -101,6 +83,7 @@ func (h *HTMLDocument) GetAttr(elem ...string) []string {
 }
 
 func (h *HTMLDocument) GetAttrOnce(elem ...string) string {
+	defer Catch_Panic()
 	return getAttr(h.NodeList, true, elem)[0]
 }
 
@@ -111,6 +94,7 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	}
 	for _, x := range r.Nodes {
 		for _, y := range x.Node.Attr {
+			fmt.Println(y)
 			for _, z := range elem {
 				if y.Key == z {
 					if once {
@@ -121,6 +105,8 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 			}
 		}
 	}
+
+	fmt.Println(list)
 	return list
 }
 
@@ -150,3 +136,17 @@ func getText(r *html.Node, b *bytes.Buffer) {
 		getText(c, b)
 	}
 }
+
+func BreakWords(str string) [][]string {
+	var list [][]string
+	for _, words := range strings.Fields(str) {
+		list = append(list, []string{words})
+	}
+	return list
+}
+
+func (n *NodeList) GetNode(index int) Node {
+	return n.Nodes[index]
+}
+
+// func Contains()
