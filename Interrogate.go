@@ -346,6 +346,10 @@ func find(r *Node, s Search, l *NodeList) {
 
 }
 
+// func findStrictly(r *Node, s Search, l NodeList){
+// 	if r.Node
+// }
+
 // --------------------------------------------------------------------------------------------
 
 func ContainsAttrString(str, toCompare string) bool {

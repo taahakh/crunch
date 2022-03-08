@@ -58,8 +58,6 @@ func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeL
 	*/
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	// defer Exetime("Program: ")()
-	// time.Sleep(2 * time.Second)
 
 	query(h.Node, *s, &h.NodeList)
 	return &h.NodeList
@@ -72,8 +70,7 @@ func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)
 	 */
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	// defer Exetime("Program: ")()
-	// time.Sleep(2 * time.Second)
+
 	queryStrictly(h.Node, *s, &h.NodeList)
 
 	if len(m) > 0 {
@@ -85,8 +82,6 @@ func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)
 func (h *HTMLDocument) Find(search string) *NodeList {
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	// defer Exetime("Program: ")()
-	// time.Sleep(2 * time.Second)
 	find(h.Node, *s, &h.NodeList)
 	return &h.NodeList
 }

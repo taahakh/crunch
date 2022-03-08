@@ -5,8 +5,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anaskhan96/soup"
 	"github.com/taahakh/speed"
 )
+
+func souping(str string) {
+	at := soup.HTMLParse(str)
+	defer speed.Exetime("program: ")()
+	time.Sleep(2 * time.Second)
+	at.Find("div", "class", "des")
+
+}
+
+func me(str string, q string) {
+	doc := speed.CreateHTMLDocument(strings.NewReader(str))
+	defer speed.Exetime("program: ")()
+	time.Sleep(2 * time.Second)
+	doc.Find(q)
+
+}
 
 func main() {
 	fmt.Println("hello world")
@@ -15,104 +32,46 @@ func main() {
 	// if err != nil {
 	// 	log.Fatal("it broken")
 	// }
-	doc := speed.CreateHTMLDocument(strings.NewReader(wow))
-	// doc.Find("link", func(e *speed.HTMLDocument) {
-	// 	// fmt.Println(e.NodeList)
-	// 	e.GetAttr("href")
-	// 	// fmt.Println(a)
-	// })
+	// str := "[id='node-test']"
+	str := "div.des"
 
-	// doc.FindTag("div", func(e *speed.HTMLDocument) {
-	// 	// for _, x := range e.NodeList {
-	// 	// 	b := &bytes.Buffer{}
-	// 	// 	fmt.Println(speed.Text(x, b))
-	// 	// }
-	// 	// fmt.Println(e.NodeList)
-	// })
+	// str := ".des"
 
-	// time1 := time.Now()
+	// str := "div"
+	// defer speed.Exetime("program: ")()
+	// time.Sleep(2 * time.Second)
 
-	// doc.Find("[crossorigin, href='style.css']")
+	souping(wow)
+	me(wow, str)
 
-	// doc.FindStrictly("div.des[href='a']")
-	// for _, x := range doc.NodeList {
-	// 	fmt.Println("-->", x)
-	// }
+	// doc.Find(str)
+	// doc.PrintNodeList()
+	// doc.Node = &what.Nodes[1]
+	// fmt.Println("-------------------NodeList-------------------")
+	// doc.PrintNodeList()
+	// defer speed.Exetime("program: ")()
+	// time.Sleep(2 * time.Second)
+	// doc.Find("[class='info-container']")
 
-	str := "[class='des']"
-	// fmt.Println("------------STRICT---------------------")
-	// // doc.FindStrictly("[class='info-container extra', href='style.css']")
-	// doc.FindStrictly(str)
-	// for _, x := range doc.NodeList {
-	// 	fmt.Println("-->", x)
-	// }
-	// doc.NodeList = nil
-	fmt.Println("----------------FIND-----------------")
+	// fmt.Println("-------------------NodeList-------------------")
+	// doc.PrintNodeList()
 
-	time1 := time.Now()
-	doc.Find(str)
-	fmt.Println(time.Since(time1))
+	// doc.Attr()
 
-	for _, x := range doc.NodeList {
-		// fmt.Println("-->", speed.Text(x))
-		fmt.Println("-->", x)
+	// doc.GetAttrOnce("class")
+	// fmt.Println(doc.Attr())
 
-	}
-
-	doc.NodeList = nil
-
-	// fmt.Println("---------------------------------")
-	// doc.Find("[class='info-container extra', href]")
-	// for _, x := range doc.NodeList {
-	// 	fmt.Println("-->", x)
-	// }
-
-	// fmt.Println(time.Since(time1))
-	// l := doc.Attr()
-	// for a, b := range l {
-	// 	fmt.Println(a, b)
-	// }
-	// doc.GetAttr("href")
-	// fmt.Println(list)
-	// for _, x := range list {
-	// 	fmt.Println(x.Attr)
-	// }
-	// doc.Find("div")
-
-	// speed.SearchTag(tp, "div")
-
-	// store := &speed.Tag{}
-
-	// // speed.FindAll(tp, "div", &store)
-	// // fmt.Println(store)
-	// // for _, v := range store.Attr {
-	// // 	fmt.Println("Value: ", v)
-	// // }
-
-	// to := speed.SearchSpecifc{
-	// 	// Tag: "link",
-	// 	Attr: map[string]string{
-	// 		"class": "waga john",
-	// 		"id":    "info-index-title",
-	// 	},
-	// }
-
-	// more := speed.Tag{}
-	// speed.GetTags(tp, to, &more)
-
-	// for _, v := range more.Attr {
-	// 	fmt.Println("Value: ", v)
-	// }
-
-	// fmt.Println(more.Text[1])
-	// // time1 := time.Now()
-	// s := speed.FinderParser("div[class='title-separation']")
-	// speed.AdvancedSearch(tp, *s, store)
-	// for _, value := range store.Node {
-	// 	for _, x := range value {
-	// 		fmt.Println(x.Node.Attr)
+	// for i, x := range doc.Attr() {
+	// 	if x["class"] == "des aa" {
+	// 		fmt.Println(i, true)
+	// 		fmt.Println(doc.NodeList.GetNode(i))
 	// 	}
 	// }
-	// fmt.Println(store.Node)
 
+	// fmt.Println(doc.NodeList.Nodes[12].Node)
+	// fmt.Println(doc.NodeList.Nodes[13].Node)
+
+	// for _, x := range doc.NodeList.Nodes {
+	// 	fmt.Println(x.Attr())
+	// }
 }
