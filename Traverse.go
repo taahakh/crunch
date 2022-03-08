@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -32,15 +34,47 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	return HTMLDocument{Node: &Node{Node: doc}}
 }
 
-func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) *NodeList {
+func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeList {
+	/*
+		SHOULD BE USED FOR SMALL NUMBER OF NODES AND FOR FINDING TAGS
+
+		tag/tag(. or #)selector --> strict
+		[] --> non-strict, key-independant, key-pair attr
+		--> finds all nodes where the string is present.
+			e.g. .box will find nodes that contains this word in the class even if it has multiple classes
+		--> attr box [] can search for nodes that the attr you want
+			NOTE: Most tags for searching data will usually not have anything other than div or id
+				  This is for tags such as <link>
+			link[crossorigin]
+			link[href='style.css']
+			link[crossorigin, href='style.css']
+
+			The search is done loosely in the attr box []. It will return nodes that have the attrs but doesn't
+			mean it will strictly follow a rule to return tags that only contains those attrs
+
+		Max accepted string
+			tag.selector[attr='', attr='']
+
+	*/
+	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	AdvancedSearch(h.Node, *s, &h.NodeList)
+	// defer Exetime("Program: ")()
+	// time.Sleep(2 * time.Second)
+
+	query(h.Node, *s, &h.NodeList)
 	return &h.NodeList
 }
 
-func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) {
+func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)) {
+	/*
+
+
+	 */
+	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	findStrictly(h.Node, *s, &h.NodeList)
+	// defer Exetime("Program: ")()
+	// time.Sleep(2 * time.Second)
+	queryStrictly(h.Node, *s, &h.NodeList)
 
 	if len(m) > 0 {
 		m[0](h)
@@ -48,10 +82,12 @@ func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument))
 
 }
 
-func (h *HTMLDocument) QuerySearch(search string) *NodeList {
+func (h *HTMLDocument) Find(search string) *NodeList {
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	querySearch(h.Node, *s, &h.NodeList)
+	// defer Exetime("Program: ")()
+	// time.Sleep(2 * time.Second)
+	find(h.Node, *s, &h.NodeList)
 	return &h.NodeList
 }
 
@@ -149,4 +185,11 @@ func (n *NodeList) GetNode(index int) Node {
 	return n.Nodes[index]
 }
 
-// func Contains()
+func Exetime(name string) func() {
+	start := time.Now()
+	return func() {
+		x := time.Since(start)
+		log.Printf("%s, execution time %s\n", name, x)
+		log.Println(x.Microseconds())
+	}
+}
