@@ -40,7 +40,6 @@ func CreateSearch(sb *SearchBuilder) *Search {
 }
 
 func FinderParser(s string) *Search {
-
 	lol := []string{}
 	for _, v := range s {
 		lol = append(lol, string(v))

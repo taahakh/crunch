@@ -86,6 +86,13 @@ func (h *HTMLDocument) Find(search string) *NodeList {
 	return &h.NodeList
 }
 
+func (h *HTMLDocument) FindStrictly(search string) *NodeList {
+	// h.NodeList.Nodes = nil
+	s := FinderParser(search)
+	findStrictly(h.Node.Node, *s)
+	return &h.NodeList
+}
+
 func (h *HTMLDocument) Attr() []map[string]string {
 
 	list := make([]map[string]string, 0)

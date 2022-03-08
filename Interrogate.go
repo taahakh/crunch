@@ -346,9 +346,48 @@ func find(r *Node, s Search, l *NodeList) {
 
 }
 
-// func findStrictly(r *Node, s Search, l NodeList){
-// 	if r.Node
-// }
+func attrvalCheck(r html.Attribute, s Search) bool {
+
+	numToBeFound := len(s.Attr)
+
+	for _, y := range s.Attr {
+		if y.Name == r.Key {
+			if y.Value == r.Val {
+				numToBeFound--
+			}
+		}
+	}
+
+	return numToBeFound == 0
+}
+
+func checkTag(tag, nodeTag string) bool {
+	return tag == "" || tag == nodeTag
+}
+
+func findStrictly(r *html.Node, s Search) {
+	var nodes = make([]*html.Node, 0)
+	var f func(r *html.Node, s Search)
+
+	f = func(r *html.Node, s Search) {
+		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
+			for _, x := range r.Attr {
+				if attrvalCheck(x, s) {
+					nodes = append(nodes, r)
+				}
+			}
+		}
+
+		for c := r.FirstChild; c != nil; c = c.NextSibling {
+			f(c, s)
+		}
+	}
+
+	f(r, s)
+
+	// fmt.Println(nodes)
+
+}
 
 // --------------------------------------------------------------------------------------------
 
