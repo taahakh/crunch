@@ -14,8 +14,8 @@ type Attribute struct {
 }
 
 type NodeList struct {
-	Nodes []*html.Node
-	Node  []Node
+	Nodes []*html.Node // lets users have their freedom to manipulate the raw html.Node
+	nodes []Node       // private as we want methods to dictate what to do with these nodes
 }
 
 type Node struct {

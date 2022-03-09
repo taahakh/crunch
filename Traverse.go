@@ -200,6 +200,6 @@ func (h *HTMLDocument) Nodify() []Node {
 		nodes = append(nodes, Node{x})
 	}
 
-	h.NodeList.Node = nodes
+	h.NodeList.nodes = nodes
 	return nodes
 }
