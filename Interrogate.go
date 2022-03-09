@@ -76,15 +76,25 @@ func query(r *Node, s Search, l *NodeList) {
 
 }
 
+func compareQueryAttr(n html.Attribute, key string, val string) bool {
+	if key == n.Key {
+		if len(val) > 0 {
+			if ContainsAttrString(n.Val, val) {
+				return true
+			}
+		} else {
+			return true
+		}
+	}
+
+	return false
+}
+
 func compareQueryAttrList(r *html.Node, a []Attribute) bool {
 	for _, x := range a {
 		for _, y := range r.Attr {
-			if len(x.Value) > 0 {
-				if x.Name == y.Key {
-					if ContainsAttrString(y.Val, x.Value) {
-						return true
-					}
-				}
+			if compareQueryAttr(y, x.Name, x.Value) {
+				return true
 			}
 
 		}
@@ -97,21 +107,12 @@ func compareQuerySearch(attr html.Attribute, s Search, r *html.Node) bool {
 
 	var attrSearch = func(as []Attribute) bool {
 		for _, val := range as {
-			// if key exists
-			if val.Name == attr.Key {
-				// if value exists
-				if len(val.Value) > 0 {
-					// search through attributes
-					if ContainsAttrString(attr.Val, val.Value) {
-						return true
-					}
-
-				} else {
-					return true
-				}
+			if compareQueryAttr(attr, val.Name, val.Value) {
+				return true
 			}
 		}
 		return false
+
 	}
 
 	var search = func() bool {
@@ -327,10 +328,6 @@ func findAttr(r []html.Attribute, s Search) bool {
 	return numToBeFound == 0
 }
 
-// func (n *NodeList) append(r *html.Node) {
-// 	n.Nodes = append(n.Nodes, Node{r})
-// }
-
 func find(r *Node, s Search, l *NodeList) {
 	var f func(r *html.Node, s Search)
 	nodes := make([]*html.Node, 0)
@@ -378,20 +375,25 @@ func attrvalCheck(r html.Attribute, s Search) bool {
 }
 
 func checkTag(tag, nodeTag string) bool {
+	// if there is not tag or there is a tag match --> return true
 	return tag == "" || tag == nodeTag
 }
 
-func findStrictly(r *html.Node, s Search) {
+func findStrictly(r *html.Node, s Search, l *NodeList) {
 	var nodes = make([]*html.Node, 0)
 	var f func(r *html.Node, s Search)
-
 	f = func(r *html.Node, s Search) {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
+			matchedAttr := 0
 			for _, x := range r.Attr {
 				if attrvalCheck(x, s) {
-					nodes = append(nodes, r)
+					matchedAttr++
 				}
 			}
+			if matchedAttr == len(r.Attr) && matchedAttr > 0 {
+				nodes = append(nodes, r)
+			}
+			matchedAttr = 0
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
@@ -400,8 +402,7 @@ func findStrictly(r *html.Node, s Search) {
 	}
 
 	f(r, s)
-
-	// fmt.Println(nodes)
+	l.Nodes = nodes
 
 }
 

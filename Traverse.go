@@ -25,6 +25,9 @@ type DocumentGroup struct {
 	Collector []HTMLDocument
 }
 
+type SearchingTypes interface {
+}
+
 // Add to the doc struct for each HTML
 func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	doc, err := html.Parse(r)
@@ -87,9 +90,14 @@ func (h *HTMLDocument) Find(search string) *NodeList {
 }
 
 func (h *HTMLDocument) FindStrictly(search string) *NodeList {
-	// h.NodeList.Nodes = nil
+	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	findStrictly(h.Node.Node, *s)
+	// we don't want to place a tag alone
+	// left side selector does not work
+	if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+		return &h.NodeList
+	}
+	findStrictly(h.Node.Node, *s, &h.NodeList)
 	return &h.NodeList
 }
 
