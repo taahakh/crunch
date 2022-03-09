@@ -98,21 +98,12 @@ func (h *HTMLDocument) Attr() []map[string]string {
 	list := make([]map[string]string, 0)
 	for _, x := range h.NodeList.Nodes {
 		t := make(map[string]string, 0)
-		for _, y := range x.Node.Attr {
+		for _, y := range x.Attr {
 			t[y.Key] = y.Val
 		}
 		list = append(list, t)
 	}
 
-	return list
-}
-
-func (n *Node) Attr() map[string]string {
-
-	list := make(map[string]string)
-	for _, x := range n.Node.Attr {
-		list[x.Key] = x.Val
-	}
 	return list
 }
 
@@ -131,7 +122,7 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 		list = make([]string, 0)
 	}
 	for _, x := range r.Nodes {
-		for _, y := range x.Node.Attr {
+		for _, y := range x.Attr {
 			for _, z := range elem {
 				if y.Key == z {
 					if once {
@@ -148,14 +139,8 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 
 func (h *HTMLDocument) PrintNodeList() {
 	for _, x := range h.NodeList.Nodes {
-		fmt.Println(x.Node)
+		fmt.Println(x)
 	}
-}
-
-func (n *Node) Text() string {
-	b := &bytes.Buffer{}
-	getText(n.Node, b)
-	return b.String()
 }
 
 func Text(r *html.Node) string {
@@ -181,10 +166,6 @@ func BreakWords(str string) [][]string {
 	return list
 }
 
-func (n *NodeList) GetNode(index int) Node {
-	return n.Nodes[index]
-}
-
 func Exetime(name string) func() {
 	start := time.Now()
 	return func() {
@@ -192,4 +173,33 @@ func Exetime(name string) func() {
 		log.Printf("%s, execution time %s\n", name, x)
 		log.Println(x.Microseconds())
 	}
+}
+
+func (n *Node) Attr() map[string]string {
+
+	list := make(map[string]string)
+	for _, x := range n.Node.Attr {
+		list[x.Key] = x.Val
+	}
+	return list
+}
+
+func (n *Node) Text() string {
+	b := &bytes.Buffer{}
+	getText(n.Node, b)
+	return b.String()
+}
+
+func (n *NodeList) GetNode(index int) Node {
+	return Node{n.Nodes[index]}
+}
+
+func (h *HTMLDocument) Nodify() []Node {
+	nodes := make([]Node, 0, 10)
+	for _, x := range h.NodeList.Nodes {
+		nodes = append(nodes, Node{x})
+	}
+
+	h.NodeList.Node = nodes
+	return nodes
 }
