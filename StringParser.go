@@ -1,7 +1,6 @@
 package speed
 
 import (
-	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -62,7 +61,7 @@ func FinderParser(s string) *Search {
 		build.Tag = Reverse(strings.Join(build.Tracking, ""))
 		build.Tracking = nil
 	}
-	fmt.Println(build)
+	// fmt.Println(build)
 	return CreateSearch(build)
 }
 

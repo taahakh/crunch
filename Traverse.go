@@ -132,7 +132,6 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	}
 	for _, x := range r.Nodes {
 		for _, y := range x.Node.Attr {
-			fmt.Println(y)
 			for _, z := range elem {
 				if y.Key == z {
 					if once {
@@ -144,7 +143,6 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 		}
 	}
 
-	fmt.Println(list)
 	return list
 }
 
