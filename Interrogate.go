@@ -156,11 +156,6 @@ func compareQuerySearch(attr html.Attribute, s Search, r *html.Node) bool {
 
 func searchStrictQueryAttr(attr html.Attribute, val string, num_selector ...int) bool {
 	words := strings.Fields(attr.Val)
-	// if num_selector != nil {
-	// 	if num_selector[0] != len(words) {
-	// 		return false
-	// 	}
-	// }
 
 	if len(words) > 0 {
 		for _, x := range words {
@@ -361,17 +356,20 @@ func find(r *Node, s Search, l *NodeList) {
 // ----------------------------------------------
 func attrvalCheck(r html.Attribute, s Search) bool {
 
-	numToBeFound := len(s.Attr)
+	// numToBeFound := len(s.Attr)
 
+	// our attr
 	for _, y := range s.Attr {
 		if y.Name == r.Key {
 			if y.Value == r.Val {
-				numToBeFound--
+				// numToBeFound--
+				return true
 			}
 		}
 	}
-
-	return numToBeFound == 0
+	// fmt.Println("num: ", numToBeFound)
+	return false
+	// return numToBeFound == 0
 }
 
 func checkTag(tag, nodeTag string) bool {
@@ -390,7 +388,7 @@ func findStrictly(r *html.Node, s Search, l *NodeList) {
 					matchedAttr++
 				}
 			}
-			if matchedAttr == len(r.Attr) && matchedAttr > 0 {
+			if matchedAttr == len(r.Attr) && matchedAttr == len(s.Attr) && matchedAttr > 0 {
 				nodes = append(nodes, r)
 			}
 			matchedAttr = 0
