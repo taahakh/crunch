@@ -67,6 +67,13 @@ func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeL
 	return &h.NodeList
 }
 
+func (h *HTMLDocument) NewQuery(search string) *HTMLDocument {
+	h.NodeList.Nodes = nil
+	s := FinderParser(search)
+	h.NodeList.Nodes = newQuery(h.Node.Node, *s)
+	return h
+}
+
 func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)) {
 	/*
 
@@ -133,26 +140,52 @@ func (h *HTMLDocument) FindOnce(search string) *HTMLDocument {
 	return h
 }
 
-func (h *HTMLDocument) FindStrictly(search string) *NodeList {
-	h.NodeList.Nodes = nil
+func (h *HTMLDocument) FindStrictly(search string) *HTMLDocument {
 	s := FinderParser(search)
-	// we don't want to place a tag alone
-	// left side selector does not work
-	if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
-		return &h.NodeList
+	if !(h.IntialSearch) {
+		h.IntialSearch = true
+		// we don't want to place a tag alone
+		// left side selector does not work
+		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+			return h
+		}
+		h.NodeList.Nodes = findStrictly(h.Node.Node, *s, false)
+	} else {
+		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+			return h
+		}
+		tempAppend := make([]*html.Node, 0, 10)
+		for _, x := range h.NodeList.Nodes {
+			temp := findStrictly(x, *s, false)
+			tempAppend = append(tempAppend, temp...)
+		}
+
+		h.NodeList.Nodes = tempAppend
 	}
-	findStrictly(h.Node.Node, *s, &h.NodeList, false)
-	return &h.NodeList
+
+	return h
 }
 
-func (h *HTMLDocument) FindStrictlyOnce(search string) *NodeList {
-	h.NodeList.Nodes = nil
+func (h *HTMLDocument) FindStrictlyOnce(search string) *HTMLDocument {
 	s := FinderParser(search)
-	if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
-		return &h.NodeList
+	var temp []*html.Node
+	if !(h.IntialSearch) {
+		h.IntialSearch = true
+		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+			return h
+		}
+		h.NodeList.Nodes = findStrictly(h.Node.Node, *s, true)
+	} else {
+		for _, x := range h.NodeList.Nodes {
+			temp = findStrictly(x, *s, true)
+			if len(temp) == 1 {
+				break
+			}
+		}
+		h.NodeList.Nodes = temp
 	}
-	findStrictly(h.Node.Node, *s, &h.NodeList, true)
-	return &h.NodeList
+
+	return h
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
@@ -314,11 +347,9 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	return list
 }
 
-func BreakWords(str string) [][]string {
-	var list [][]string
-	for _, words := range strings.Fields(str) {
-		list = append(list, []string{words})
-	}
+func BreakWords(str string) []string {
+	var list []string
+	list = append(list, strings.Fields(str)...)
 	return list
 }
 
@@ -333,4 +364,20 @@ func Exetime(name string) func() {
 
 func ToNode(r *html.Node) *Node {
 	return &Node{r}
+}
+
+func CompareAttrLists(search string, node string) bool {
+	searchList := BreakWords(search)
+	nodeList := BreakWords(node)
+	min := len(searchList)
+
+	for _, x := range searchList {
+		for _, y := range nodeList {
+			if x == y {
+				min--
+			}
+		}
+	}
+
+	return min == 0
 }

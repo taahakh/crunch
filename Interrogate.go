@@ -156,6 +156,55 @@ func compareQuerySearch(attr html.Attribute, s Search, r *html.Node) bool {
 	return search()
 }
 
+func nq(n []html.Attribute, s Search) bool {
+	count := len(s.Attr)
+
+	for _, a := range n {
+		for _, b := range s.Attr {
+			if a.Key == b.Name {
+				if len(b.Value) > 0 {
+					if CompareAttrLists(b.Value, a.Val) {
+						count--
+					}
+				} else {
+					count--
+				}
+			}
+		}
+	}
+
+	return count == 0
+}
+
+func newQuery(r *html.Node, s Search) []*html.Node {
+	var f func(r *html.Node, s Search)
+	nodes := make([]*html.Node, 0, 5)
+
+	f = func(r *html.Node, s Search) {
+		if r.Type == html.ElementNode {
+			if s.Tag != "" {
+				if r.Data == s.Tag {
+					if nq(r.Attr, s) {
+						nodes = append(nodes, r)
+					}
+				}
+			} else {
+				if nq(r.Attr, s) {
+					nodes = append(nodes, r)
+				}
+			}
+		}
+
+		for c := r.FirstChild; c != nil; c = c.NextSibling {
+			f(c, s)
+		}
+
+	}
+
+	f(r, s)
+	return nodes
+}
+
 // -------------------------------------------------------------------
 
 func searchStrictQueryAttr(attr html.Attribute, val string, num_selector ...int) bool {
@@ -334,47 +383,6 @@ func findAttr(r []html.Attribute, s Search) bool {
 	return numToBeFound == 0
 }
 
-// func find(r *html.Node, s Search, l *[]*html.Node, once bool) {
-// 	var f func(r *html.Node, s Search) bool
-// 	nodes := make([]*html.Node, 0)
-
-// 	f = func(r *html.Node, s Search) bool {
-// 		if r.Type == html.ElementNode {
-
-// 			if len(s.Tag) > 0 {
-// 				if s.Tag == r.Data {
-// 					if findAttr(r.Attr, s) {
-// 						nodes = append(nodes, r)
-// 						if once {
-// 							return true
-// 						}
-// 					}
-
-// 				}
-// 			} else if len(s.Attr) > 0 {
-// 				if findAttr(r.Attr, s) {
-// 					nodes = append(nodes, r)
-// 					if once {
-// 						return true
-// 					}
-// 				}
-// 			}
-// 		}
-
-// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-// 			b := f(c, s)
-// 			if b {
-// 				return true
-// 			}
-// 		}
-// 		return false
-// 	}
-
-// 	f(r, s)
-
-// 	l = &nodes
-// }
-
 func find(r *html.Node, s Search, once bool) []*html.Node {
 	var f func(r *html.Node, s Search) bool
 	nodes := make([]*html.Node, 0)
@@ -433,7 +441,7 @@ func checkTag(tag, nodeTag string) bool {
 	return tag == "" || tag == nodeTag
 }
 
-func findStrictly(r *html.Node, s Search, l *NodeList, once bool) {
+func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 	var nodes = make([]*html.Node, 0)
 	var f func(r *html.Node, s Search) bool
 	f = func(r *html.Node, s Search) bool {
@@ -463,7 +471,8 @@ func findStrictly(r *html.Node, s Search, l *NodeList, once bool) {
 	}
 
 	f(r, s)
-	l.Nodes = nodes
+
+	return nodes
 
 }
 
