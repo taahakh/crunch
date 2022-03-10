@@ -74,18 +74,35 @@ func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
 
-	queryStrictly(h.Node, *s, &h.NodeList)
+	queryStrictly(h.Node.Node, *s, &h.NodeList, false)
 
 	if len(m) > 0 {
 		m[0](h)
 	}
+}
 
+func (h *HTMLDocument) QueryStrictlyOnce(search string, m ...func(doc *HTMLDocument)) {
+	h.NodeList.Nodes = nil
+	s := FinderParser(search)
+
+	queryStrictly(h.Node.Node, *s, &h.NodeList, true)
+
+	if len(m) > 0 {
+		m[0](h)
+	}
 }
 
 func (h *HTMLDocument) Find(search string) *NodeList {
 	h.NodeList.Nodes = nil
 	s := FinderParser(search)
-	find(h.Node, *s, &h.NodeList)
+	find(h.Node, *s, &h.NodeList, false)
+	return &h.NodeList
+}
+
+func (h *HTMLDocument) FindOnce(search string) *NodeList {
+	h.NodeList.Nodes = nil
+	s := FinderParser(search)
+	find(h.Node, *s, &h.NodeList, true)
 	return &h.NodeList
 }
 
@@ -97,7 +114,17 @@ func (h *HTMLDocument) FindStrictly(search string) *NodeList {
 	if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
 		return &h.NodeList
 	}
-	findStrictly(h.Node.Node, *s, &h.NodeList)
+	findStrictly(h.Node.Node, *s, &h.NodeList, false)
+	return &h.NodeList
+}
+
+func (h *HTMLDocument) FindStrictlyOnce(search string) *NodeList {
+	h.NodeList.Nodes = nil
+	s := FinderParser(search)
+	if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+		return &h.NodeList
+	}
+	findStrictly(h.Node.Node, *s, &h.NodeList, true)
 	return &h.NodeList
 }
 
@@ -124,6 +151,106 @@ func (h *HTMLDocument) GetAttrOnce(elem ...string) string {
 	return getAttr(h.NodeList, true, elem)[0]
 }
 
+func (h *HTMLDocument) PrintNodeList() {
+	for _, x := range h.NodeList.Nodes {
+		fmt.Println(x)
+	}
+}
+
+func (n *Node) Attr() map[string]string {
+
+	list := make(map[string]string)
+	for _, x := range n.Node.Attr {
+		list[x.Key] = x.Val
+	}
+	return list
+}
+
+func (n *Node) PrevSiblingNode() Node {
+	if n.Node.PrevSibling != nil {
+		n.Node = n.Node.PrevSibling
+		return Node{n.Node}
+	}
+	return Node{}
+}
+
+func (n *Node) PrevElementNode() Node {
+	if n.Node.PrevSibling != nil {
+		if n.Node.PrevSibling.Type == html.ElementNode {
+			n.Node = n.Node.PrevSibling
+			return Node{n.Node}
+		}
+	}
+	return Node{}
+}
+
+func (n *Node) NextSiblingNode() Node {
+	if n.Node.NextSibling != nil {
+		n.Node = n.Node.NextSibling
+		return Node{n.Node}
+	}
+	return Node{}
+}
+
+func (n *Node) NextElementNode() Node {
+	if n.Node.NextSibling != nil {
+		if n.Node.NextSibling.Type == html.ElementNode {
+			n.Node = n.Node.NextSibling
+			return Node{n.Node}
+		}
+	}
+	return Node{}
+}
+
+func (n *Node) ChildrenNode() []Node {
+	var f func(r *html.Node)
+	nodes := make([]Node, 0, 10)
+
+	f = func(r *html.Node) {
+		if r.Type == html.ElementNode {
+			nodes = append(nodes, Node{r})
+		}
+
+		for c := r.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(n.Node)
+	return nodes
+}
+
+func (n *Node) Text() string {
+	b := &bytes.Buffer{}
+	var f func(r *html.Node)
+	f = func(r *html.Node) {
+		if r.Type == html.TextNode {
+			b.WriteString(r.Data)
+		}
+		for c := r.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(n.Node)
+
+	return b.String()
+}
+
+func (n *NodeList) GetNode(index int) Node {
+	return Node{n.Nodes[index]}
+}
+
+func (h *HTMLDocument) Nodify() []Node {
+	nodes := make([]Node, 0, 10)
+	for _, x := range h.NodeList.Nodes {
+		nodes = append(nodes, Node{x})
+	}
+
+	h.NodeList.nodes = nodes
+	return nodes
+}
+
 func getAttr(r NodeList, once bool, elem []string) []string {
 	var list []string
 	if once {
@@ -145,27 +272,6 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	return list
 }
 
-func (h *HTMLDocument) PrintNodeList() {
-	for _, x := range h.NodeList.Nodes {
-		fmt.Println(x)
-	}
-}
-
-func Text(r *html.Node) string {
-	b := &bytes.Buffer{}
-	getText(r, b)
-	return b.String()
-}
-
-func getText(r *html.Node, b *bytes.Buffer) {
-	if r.Type == html.TextNode {
-		b.WriteString(r.Data)
-	}
-	for c := r.FirstChild; c != nil; c = c.NextSibling {
-		getText(c, b)
-	}
-}
-
 func BreakWords(str string) [][]string {
 	var list [][]string
 	for _, words := range strings.Fields(str) {
@@ -181,33 +287,4 @@ func Exetime(name string) func() {
 		log.Printf("%s, execution time %s\n", name, x)
 		log.Println(x.Microseconds())
 	}
-}
-
-func (n *Node) Attr() map[string]string {
-
-	list := make(map[string]string)
-	for _, x := range n.Node.Attr {
-		list[x.Key] = x.Val
-	}
-	return list
-}
-
-func (n *Node) Text() string {
-	b := &bytes.Buffer{}
-	getText(n.Node, b)
-	return b.String()
-}
-
-func (n *NodeList) GetNode(index int) Node {
-	return Node{n.Nodes[index]}
-}
-
-func (h *HTMLDocument) Nodify() []Node {
-	nodes := make([]Node, 0, 10)
-	for _, x := range h.NodeList.Nodes {
-		nodes = append(nodes, Node{x})
-	}
-
-	h.NodeList.nodes = nodes
-	return nodes
 }

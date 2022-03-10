@@ -45,6 +45,7 @@ func query(r *Node, s Search, l *NodeList) {
 			nodes = append(nodes, temp...)
 			temp = nil
 		}
+
 	}
 
 	f = func(r *html.Node, s Search) {
@@ -56,24 +57,27 @@ func query(r *Node, s Search, l *NodeList) {
 					// checks if the tag is accompanied with attributes/ selectors
 					if len(s.Attr) > 0 || len(s.Selector) > 0 {
 						search(r)
+
 					} else { // appends all named tag that has been chosen
 						nodes = append(nodes, r)
+
 					}
 				}
 			} else { // used if only attr are present for the search
 				search(r)
+
 			}
 		}
 
 		// doing a depth first search
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
 			f(c, s)
+
 		}
 	}
 
 	f(r.Node, s)
 	l.Nodes = nodes
-
 }
 
 func compareQueryAttr(n html.Attribute, key string, val string) bool {
@@ -228,7 +232,6 @@ func strictQueryCompare(r []html.Attribute, s Search) bool {
 	} else {
 		return false
 	}
-
 }
 
 func strictQueryAttrCompare(r *html.Node, s Search) bool {
@@ -250,14 +253,14 @@ func strictQuerySearch(r *html.Node, s Search) bool {
 	return strictQueryCompare(r.Attr, s)
 }
 
-func queryStrictlySearch(r *Node, s Search, l *NodeList) {
+func queryStrictly(r *html.Node, s Search, l *NodeList, once bool) {
 	isTag := len(s.Tag) > 0
 	isSelector := len(s.Selector) > 0
 
-	var f func(r *html.Node, s Search)
+	var f func(r *html.Node, s Search) bool
 	nodes := make([]*html.Node, 0, 10)
 
-	f = func(r *html.Node, s Search) {
+	f = func(r *html.Node, s Search) bool {
 		// check if it's an element node
 		if r.Type == html.ElementNode {
 			// check if it equals the tag
@@ -266,34 +269,83 @@ func queryStrictlySearch(r *Node, s Search, l *NodeList) {
 				if r.Data == s.Tag {
 					if strictQuerySearch(r, s) {
 						nodes = append(nodes, r)
+						if once {
+							return true
+						}
 					}
 				}
 			} else if isSelector {
 				// runs when only selector present
 				if strictQuerySearch(r, s) {
 					nodes = append(nodes, r)
+					if once {
+						return true
+					}
 				}
 			} else {
 				if strictQueryAttrCompare(r, s) {
 					nodes = append(nodes, r)
+					if once {
+						return true
+					}
 				}
 			}
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-			f(c, s)
+			b := f(c, s)
+			if b {
+				return true
+			}
 		}
+		return false
 	}
 
-	f(r.Node, s)
+	f(r, s)
 
 	l.Nodes = nodes
-
 }
 
-func queryStrictly(r *Node, s Search, l *NodeList) {
-	queryStrictlySearch(r, s, l)
-}
+// func queryStrictly(r *html.Node, s Search, l *NodeList, once bool) {
+// 	isTag := len(s.Tag) > 0
+// 	isSelector := len(s.Selector) > 0
+
+// 	var f func(r *html.Node, s Search)
+// 	nodes := make([]*html.Node, 0, 10)
+
+// 	f = func(r *html.Node, s Search)  {
+// 		// check if it's an element node
+// 		if r.Type == html.ElementNode {
+// 			// check if it equals the tag
+// 			if isTag {
+// 				// current node is equal to our tag?
+// 				if r.Data == s.Tag {
+// 					if strictQuerySearch(r, s) {
+// 						nodes = append(nodes, r)
+// 					}
+// 				}
+// 			} else if isSelector {
+// 				// runs when only selector present
+// 				if strictQuerySearch(r, s) {
+// 					nodes = append(nodes, r)
+// 				}
+// 			} else {
+// 				if strictQueryAttrCompare(r, s) {
+// 					nodes = append(nodes, r)
+// 				}
+// 			}
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			f(c, s)
+
+// 		}
+// 	}
+
+// 	f(r, s)
+
+// 	l.Nodes = nodes
+// }
 
 // --------------------------------------------------------------------------------------------
 //  HTML parsing. Independeant from the DocumentGroup
@@ -323,53 +375,92 @@ func findAttr(r []html.Attribute, s Search) bool {
 	return numToBeFound == 0
 }
 
-func find(r *Node, s Search, l *NodeList) {
-	var f func(r *html.Node, s Search)
+func find(r *Node, s Search, l *NodeList, once bool) {
+	var f func(r *html.Node, s Search) bool
 	nodes := make([]*html.Node, 0)
-	f = func(r *html.Node, s Search) {
+
+	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode {
 
 			if len(s.Tag) > 0 {
 				if s.Tag == r.Data {
 					if findAttr(r.Attr, s) {
 						nodes = append(nodes, r)
+						if once {
+							return true
+						}
 					}
+
 				}
 			} else if len(s.Attr) > 0 {
 				if findAttr(r.Attr, s) {
 					nodes = append(nodes, r)
+					if once {
+						return true
+					}
 				}
 			}
-
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-			f(c, s)
+			b := f(c, s)
+			if b {
+				return true
+			}
 		}
+		return false
 	}
 
 	f(r.Node, s)
-	l.Nodes = nodes
 
+	l.Nodes = nodes
 }
+
+// func find(r *Node, s Search, l *NodeList, once bool) {
+// 	var f func(r *html.Node, s Search)
+// 	nodes := make([]*html.Node, 0)
+
+// 	f = func(r *html.Node, s Search)  {
+// 		if r.Type == html.ElementNode {
+
+// 			if len(s.Tag) > 0 {
+// 				if s.Tag == r.Data {
+// 					if findAttr(r.Attr, s) {
+// 						nodes = append(nodes, r)
+
+// 					}
+
+// 				}
+// 			} else if len(s.Attr) > 0 {
+// 				if findAttr(r.Attr, s) {
+// 					nodes = append(nodes, r)
+
+// 				}
+// 			}
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			f(c, s)
+
+// 		}
+
+// 	}
+
+// 	f(r.Node, s)
+
+// 	l.Nodes = nodes
+// }
 
 // ----------------------------------------------
 func attrvalCheck(r html.Attribute, s Search) bool {
-
-	// numToBeFound := len(s.Attr)
-
-	// our attr
 	for _, y := range s.Attr {
 		if y.Name == r.Key {
 			if y.Value == r.Val {
-				// numToBeFound--
 				return true
 			}
 		}
 	}
-	// fmt.Println("num: ", numToBeFound)
 	return false
-	// return numToBeFound == 0
 }
 
 func checkTag(tag, nodeTag string) bool {
@@ -377,10 +468,10 @@ func checkTag(tag, nodeTag string) bool {
 	return tag == "" || tag == nodeTag
 }
 
-func findStrictly(r *html.Node, s Search, l *NodeList) {
+func findStrictly(r *html.Node, s Search, l *NodeList, once bool) {
 	var nodes = make([]*html.Node, 0)
-	var f func(r *html.Node, s Search)
-	f = func(r *html.Node, s Search) {
+	var f func(r *html.Node, s Search) bool
+	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
 			matchedAttr := 0
 			for _, x := range r.Attr {
@@ -390,19 +481,55 @@ func findStrictly(r *html.Node, s Search, l *NodeList) {
 			}
 			if matchedAttr == len(r.Attr) && matchedAttr == len(s.Attr) && matchedAttr > 0 {
 				nodes = append(nodes, r)
+				if once {
+					return true
+				}
 			}
 			matchedAttr = 0
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-			f(c, s)
+			b := f(c, s)
+			if b {
+				return true
+			}
 		}
+		return false
 	}
 
 	f(r, s)
 	l.Nodes = nodes
 
 }
+
+// func findStrictly(r *html.Node, s Search, l *NodeList, once bool) {
+// 	var nodes = make([]*html.Node, 0)
+// 	var f func(r *html.Node, s Search)
+// 	f = func(r *html.Node, s Search) {
+// 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
+// 			matchedAttr := 0
+// 			for _, x := range r.Attr {
+// 				if attrvalCheck(x, s) {
+// 					matchedAttr++
+// 				}
+// 			}
+// 			if matchedAttr == len(r.Attr) && matchedAttr == len(s.Attr) && matchedAttr > 0 {
+// 				nodes = append(nodes, r)
+// 			}
+// 			matchedAttr = 0
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			f(c, s)
+
+// 		}
+
+// 	}
+
+// 	f(r, s)
+// 	l.Nodes = nodes
+
+// }
 
 // --------------------------------------------------------------------------------------------
 

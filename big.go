@@ -124,6 +124,12 @@ var htmlText string = `
     <div class="info-container">
     <div class="aa"></div>
 
+    <div class="text"> 
+      hello
+    
+    
+    </div>
+
     <div id="node-test">
           <p> hello world</p>
           <div id="node-test-deeper">
