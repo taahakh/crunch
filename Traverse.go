@@ -17,8 +17,9 @@ import (
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
 
 type HTMLDocument struct {
-	Node     *Node    //HTML DOC Node
-	NodeList NodeList // Current search result
+	Node         *Node    //HTML DOC Node
+	NodeList     NodeList // Current search result
+	IntialSearch bool
 }
 
 type DocumentGroup struct {
@@ -34,7 +35,7 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	if err != nil {
 		fmt.Println("something")
 	}
-	return HTMLDocument{Node: &Node{Node: doc}}
+	return HTMLDocument{Node: &Node{Node: doc}, IntialSearch: false}
 }
 
 func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeList {
@@ -92,18 +93,44 @@ func (h *HTMLDocument) QueryStrictlyOnce(search string, m ...func(doc *HTMLDocum
 	}
 }
 
-func (h *HTMLDocument) Find(search string) *NodeList {
-	h.NodeList.Nodes = nil
+func (h *HTMLDocument) Find(search string) *HTMLDocument {
 	s := FinderParser(search)
-	find(h.Node, *s, &h.NodeList, false)
-	return &h.NodeList
+	if !(h.IntialSearch) {
+		h.NodeList.Nodes = find(h.Node.Node, *s, false)
+		h.IntialSearch = true
+	} else {
+		tempAppend := make([]*html.Node, 0, 10)
+		for _, x := range h.NodeList.Nodes {
+			temp := find(x, *s, false)
+			tempAppend = append(tempAppend, temp...)
+		}
+
+		h.NodeList.Nodes = tempAppend
+
+	}
+	return h
 }
 
-func (h *HTMLDocument) FindOnce(search string) *NodeList {
-	h.NodeList.Nodes = nil
+func (h *HTMLDocument) FindOnce(search string) *HTMLDocument {
 	s := FinderParser(search)
-	find(h.Node, *s, &h.NodeList, true)
-	return &h.NodeList
+	var temp []*html.Node
+	if !(h.IntialSearch) {
+		h.NodeList.Nodes = find(h.Node.Node, *s, true)
+		// if len(h.NodeList.Nodes) != 0 {
+		// 	h.Node = ToNode(h.NodeList.Nodes[0])
+		// }
+		h.IntialSearch = true
+	} else {
+		for _, x := range h.NodeList.Nodes {
+			temp = find(x, *s, true)
+			if len(temp) == 1 {
+				break
+			}
+		}
+		h.NodeList.Nodes = temp
+	}
+
+	return h
 }
 
 func (h *HTMLDocument) FindStrictly(search string) *NodeList {
@@ -237,6 +264,13 @@ func (n *Node) Text() string {
 	return b.String()
 }
 
+func (n *Node) RenderNode() string {
+	var buf bytes.Buffer
+	w := io.Writer(&buf)
+	html.Render(w, n.Node)
+	return buf.String()
+}
+
 func (n *NodeList) GetNode(index int) Node {
 	return Node{n.Nodes[index]}
 }
@@ -249,6 +283,14 @@ func (h *HTMLDocument) Nodify() []Node {
 
 	h.NodeList.nodes = nodes
 	return nodes
+}
+
+func (h *HTMLDocument) Docify() []HTMLDocument {
+	doc := make([]HTMLDocument, 0, 3)
+	for _, x := range h.NodeList.Nodes {
+		doc = append(doc, HTMLDocument{Node: &Node{x}})
+	}
+	return doc
 }
 
 func getAttr(r NodeList, once bool, elem []string) []string {
@@ -287,4 +329,8 @@ func Exetime(name string) func() {
 		log.Printf("%s, execution time %s\n", name, x)
 		log.Println(x.Microseconds())
 	}
+}
+
+func ToNode(r *html.Node) *Node {
+	return &Node{r}
 }

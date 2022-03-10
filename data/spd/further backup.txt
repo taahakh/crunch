@@ -306,6 +306,47 @@ func queryStrictly(r *html.Node, s Search, l *NodeList, once bool) {
 	l.Nodes = nodes
 }
 
+// func queryStrictly(r *html.Node, s Search, l *NodeList, once bool) {
+// 	isTag := len(s.Tag) > 0
+// 	isSelector := len(s.Selector) > 0
+
+// 	var f func(r *html.Node, s Search)
+// 	nodes := make([]*html.Node, 0, 10)
+
+// 	f = func(r *html.Node, s Search)  {
+// 		// check if it's an element node
+// 		if r.Type == html.ElementNode {
+// 			// check if it equals the tag
+// 			if isTag {
+// 				// current node is equal to our tag?
+// 				if r.Data == s.Tag {
+// 					if strictQuerySearch(r, s) {
+// 						nodes = append(nodes, r)
+// 					}
+// 				}
+// 			} else if isSelector {
+// 				// runs when only selector present
+// 				if strictQuerySearch(r, s) {
+// 					nodes = append(nodes, r)
+// 				}
+// 			} else {
+// 				if strictQueryAttrCompare(r, s) {
+// 					nodes = append(nodes, r)
+// 				}
+// 			}
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			f(c, s)
+
+// 		}
+// 	}
+
+// 	f(r, s)
+
+// 	l.Nodes = nodes
+// }
+
 // --------------------------------------------------------------------------------------------
 //  HTML parsing. Independeant from the DocumentGroup
 
@@ -334,48 +375,7 @@ func findAttr(r []html.Attribute, s Search) bool {
 	return numToBeFound == 0
 }
 
-// func find(r *html.Node, s Search, l *[]*html.Node, once bool) {
-// 	var f func(r *html.Node, s Search) bool
-// 	nodes := make([]*html.Node, 0)
-
-// 	f = func(r *html.Node, s Search) bool {
-// 		if r.Type == html.ElementNode {
-
-// 			if len(s.Tag) > 0 {
-// 				if s.Tag == r.Data {
-// 					if findAttr(r.Attr, s) {
-// 						nodes = append(nodes, r)
-// 						if once {
-// 							return true
-// 						}
-// 					}
-
-// 				}
-// 			} else if len(s.Attr) > 0 {
-// 				if findAttr(r.Attr, s) {
-// 					nodes = append(nodes, r)
-// 					if once {
-// 						return true
-// 					}
-// 				}
-// 			}
-// 		}
-
-// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-// 			b := f(c, s)
-// 			if b {
-// 				return true
-// 			}
-// 		}
-// 		return false
-// 	}
-
-// 	f(r, s)
-
-// 	l = &nodes
-// }
-
-func find(r *html.Node, s Search, once bool) []*html.Node {
+func find(r *Node, s Search, l *NodeList, once bool) {
 	var f func(r *html.Node, s Search) bool
 	nodes := make([]*html.Node, 0)
 
@@ -411,10 +411,45 @@ func find(r *html.Node, s Search, once bool) []*html.Node {
 		return false
 	}
 
-	f(r, s)
+	f(r.Node, s)
 
-	return nodes
+	l.Nodes = nodes
 }
+
+// func find(r *Node, s Search, l *NodeList, once bool) {
+// 	var f func(r *html.Node, s Search)
+// 	nodes := make([]*html.Node, 0)
+
+// 	f = func(r *html.Node, s Search) {
+// 		if r.Type == html.ElementNode {
+
+// 			if len(s.Tag) > 0 {
+// 				if s.Tag == r.Data {
+// 					if findAttr(r.Attr, s) {
+// 						nodes = append(nodes, r)
+
+// 					}
+
+// 				}
+// 			} else if len(s.Attr) > 0 {
+// 				if findAttr(r.Attr, s) {
+// 					nodes = append(nodes, r)
+
+// 				}
+// 			}
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			f(c, s)
+
+// 		}
+
+// 	}
+
+// 	f(r.Node, s)
+
+// 	l.Nodes = nodes
+// }
 
 // ----------------------------------------------
 func attrvalCheck(r html.Attribute, s Search) bool {
@@ -509,3 +544,53 @@ func ContainsAttrString(str, toCompare string) bool {
 	}
 	return false
 }
+
+
+
+
+
+
+
+
+
+
+// func find(r *html.Node, s Search, l *[]*html.Node, once bool) {
+// 	var f func(r *html.Node, s Search) bool
+// 	nodes := make([]*html.Node, 0)
+
+// 	f = func(r *html.Node, s Search) bool {
+// 		if r.Type == html.ElementNode {
+
+// 			if len(s.Tag) > 0 {
+// 				if s.Tag == r.Data {
+// 					if findAttr(r.Attr, s) {
+// 						nodes = append(nodes, r)
+// 						if once {
+// 							return true
+// 						}
+// 					}
+
+// 				}
+// 			} else if len(s.Attr) > 0 {
+// 				if findAttr(r.Attr, s) {
+// 					nodes = append(nodes, r)
+// 					if once {
+// 						return true
+// 					}
+// 				}
+// 			}
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			b := f(c, s)
+// 			if b {
+// 				return true
+// 			}
+// 		}
+// 		return false
+// 	}
+
+// 	f(r, s)
+
+// 	l = &nodes
+// }
