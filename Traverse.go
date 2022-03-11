@@ -22,13 +22,6 @@ type HTMLDocument struct {
 	Complete     bool
 }
 
-// type HTMLDocument struct {
-// 	Node         *Node     //HTML DOC Node
-// 	NodeList     NodeList // Current search result
-// 	IntialSearch bool
-// 	Complete     bool
-// }
-
 type DocumentGroup struct {
 	Collector []HTMLDocument
 }
@@ -43,114 +36,6 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 }
 
 func (h *HTMLDocument) querySelect(search string, once bool) *HTMLDocument {
-	s := FinderParser(search)
-	if !(h.IntialSearch) {
-		h.IntialSearch = true
-		h.NodeList.Nodes = query(h.Node.Node, *s, once)
-	} else {
-		if once {
-			var temp []*html.Node
-			for _, x := range h.NodeList.Nodes {
-				temp = query(x, *s, true)
-				if len(temp) == 1 {
-					break
-				}
-			}
-
-			h.NodeList.Nodes = temp
-		} else {
-			tempAppend := make([]*html.Node, 0, 5)
-			for _, x := range h.NodeList.Nodes {
-				temp := query(x, *s, false)
-				tempAppend = append(tempAppend, temp...)
-			}
-
-			h.NodeList.Nodes = tempAppend
-		}
-
-		if h.Complete {
-			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: h.NodeList.Nodes}, IntialSearch: true}
-		}
-	}
-
-	return h
-}
-
-func (h *HTMLDocument) findSelect(search string, once bool) *HTMLDocument {
-	s := FinderParser(search)
-	if !(h.IntialSearch) {
-		h.NodeList.Nodes = find(h.Node.Node, *s, once)
-		h.IntialSearch = true
-	} else {
-		if once {
-			var temp []*html.Node
-			for _, x := range h.NodeList.Nodes {
-				temp = find(x, *s, true)
-				if len(temp) == 1 {
-					break
-				}
-			}
-			h.NodeList.Nodes = temp
-		} else {
-			tempAppend := make([]*html.Node, 0, 10)
-			for _, x := range h.NodeList.Nodes {
-				temp := find(x, *s, false)
-				tempAppend = append(tempAppend, temp...)
-			}
-			h.NodeList.Nodes = tempAppend
-		}
-
-		if h.Complete {
-			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: h.NodeList.Nodes}, IntialSearch: true}
-		}
-
-	}
-
-	return h
-}
-
-func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocument {
-	s := FinderParser(search)
-	if !(h.IntialSearch) {
-		h.IntialSearch = true
-		// we don't want to place a tag alone
-		// left side selector does not work
-		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
-			return h
-		}
-		h.NodeList.Nodes = findStrictly(h.Node.Node, *s, once)
-	} else {
-		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
-			return h
-		}
-		if once {
-			var temp []*html.Node
-			for _, x := range h.NodeList.Nodes {
-				temp = findStrictly(x, *s, true)
-				if len(temp) == 1 {
-					break
-				}
-			}
-			h.NodeList.Nodes = temp
-		} else {
-			tempAppend := make([]*html.Node, 0, 10)
-			for _, x := range h.NodeList.Nodes {
-				temp := findStrictly(x, *s, false)
-				tempAppend = append(tempAppend, temp...)
-			}
-
-			h.NodeList.Nodes = tempAppend
-		}
-
-		if h.Complete {
-			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: h.NodeList.Nodes}, IntialSearch: true}
-		}
-	}
-
-	return h
-}
-
-func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
 	/*
 		SHOULD BE USED FOR SMALL NUMBER OF NODES AND FOR FINDING TAGS
 
@@ -172,27 +57,170 @@ func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *HTMLD
 			tag.selector[attr='', attr='']
 
 	*/
-	return h.querySelect(search, false)
+	s := FinderParser(search)
+	if !(h.IntialSearch) {
+		h.IntialSearch = true
+		h.NodeList.Nodes = query(h.Node.Node, *s, once)
+	} else {
+		var tempAppend []*html.Node
+		if once {
+			for _, x := range h.NodeList.Nodes {
+				tempAppend = query(x, *s, true)
+				if len(tempAppend) == 1 {
+					break
+				}
+			}
+
+		} else {
+			for _, x := range h.NodeList.Nodes {
+				temp := query(x, *s, false)
+				tempAppend = append(tempAppend, temp...)
+			}
+		}
+		if h.Complete {
+			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: tempAppend}, IntialSearch: true}
+		}
+
+		h.NodeList.Nodes = tempAppend
+
+	}
+
+	return h
 }
 
-func (h *HTMLDocument) QueryOnce(search string) *HTMLDocument {
-	return h.querySelect(search, true)
+func (h *HTMLDocument) findSelect(search string, once bool) *HTMLDocument {
+	s := FinderParser(search)
+	if !(h.IntialSearch) {
+		h.NodeList.Nodes = find(h.Node.Node, *s, once)
+		h.IntialSearch = true
+	} else {
+		var tempAppend []*html.Node
+
+		if once {
+			for _, x := range h.NodeList.Nodes {
+				tempAppend = find(x, *s, true)
+				if len(tempAppend) == 1 {
+					break
+				}
+			}
+		} else {
+			for _, x := range h.NodeList.Nodes {
+				temp := find(x, *s, false)
+				tempAppend = append(tempAppend, temp...)
+			}
+		}
+
+		if h.Complete {
+			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: h.NodeList.Nodes}, IntialSearch: true}
+		}
+		h.NodeList.Nodes = tempAppend
+
+	}
+
+	return h
 }
 
-func (h *HTMLDocument) Find(search string) *HTMLDocument {
-	return h.findSelect(search, false)
+func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocument {
+	s := FinderParser(search)
+	if !(h.IntialSearch) {
+		h.IntialSearch = true
+		// we don't want to place a tag alone
+		// left side selector does not work
+		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+			return h
+		}
+		h.NodeList.Nodes = findStrictly(h.Node.Node, *s, once)
+	} else {
+		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
+			return h
+		}
+		var tempAppend []*html.Node
+		if once {
+			for _, x := range h.NodeList.Nodes {
+				tempAppend = findStrictly(x, *s, true)
+				if len(tempAppend) == 1 {
+					break
+				}
+			}
+		} else {
+			for _, x := range h.NodeList.Nodes {
+				temp := findStrictly(x, *s, false)
+				tempAppend = append(tempAppend, temp...)
+			}
+
+		}
+
+		if h.Complete {
+			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: h.NodeList.Nodes}, IntialSearch: true}
+		}
+
+		h.NodeList.Nodes = tempAppend
+
+	}
+
+	return h
 }
 
-func (h *HTMLDocument) FindOnce(search string) *HTMLDocument {
-	return h.findSelect(search, true)
+func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+
+	doc := h.querySelect(search, false)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
 }
 
-func (h *HTMLDocument) FindStrictly(search string) *HTMLDocument {
-	return h.findStrictlySelect(search, false)
+func (h *HTMLDocument) QueryOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+	doc := h.querySelect(search, true)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
 }
 
-func (h *HTMLDocument) FindStrictlyOnce(search string) *HTMLDocument {
-	return h.findStrictlySelect(search, true)
+func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+
+	doc := h.findSelect(search, false)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
+}
+
+func (h *HTMLDocument) FindOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+	doc := h.findSelect(search, true)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
+}
+
+func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+	doc := h.findStrictlySelect(search, false)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
+}
+
+func (h *HTMLDocument) FindStrictlyOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
+	doc := h.findStrictlySelect(search, true)
+
+	if m != nil {
+		m[0](h)
+	}
+
+	return doc
 }
 
 func (h *HTMLDocument) Attr() []map[string]string {
@@ -233,6 +261,14 @@ func (h *HTMLDocument) SetNode(i int) *HTMLDocument {
 	h.NodeList.Nodes = nil
 	h.IntialSearch = false
 	return h
+}
+
+func (h *HTMLDocument) GiveNodeList() NodeList {
+	return h.NodeList
+}
+
+func (h *HTMLDocument) GiveHTMLNodes() []*html.Node {
+	return h.NodeList.Nodes
 }
 
 func (n *Node) Attr() map[string]string {
