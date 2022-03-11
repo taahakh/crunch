@@ -210,7 +210,7 @@ func (h *HTMLDocument) Done() {
 	h.Complete = true
 }
 
-func (h *HTMLDocument) GetNode(i int) *HTMLDocument {
+func (h *HTMLDocument) SetNode(i int) *HTMLDocument {
 	h.Node = h.NodeList.GetNode(i)
 	h.NodeList.Nodes = nil
 	h.IntialSearch = false
