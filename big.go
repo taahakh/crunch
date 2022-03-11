@@ -116,11 +116,21 @@ var htmlText string = `
     <a class="des"></a>
     <div class="ingo"></div>
     <div class="ingo" anon="1"></div>
-    <div class="info-container extra"></>
+    <div class="info-container extra"></div>
     <div class="des aa"></div>
     <div class="des aa" href="a"></div>
     <div id="what" class="des">hello</div>
     <div id="what" class="des">hola</div>
+
+
+    <div class="testing" id="game"></div>
+    <div class="testing a"></div>
+    <div class="testing b"></div>
+    <div class="testing b" id="want"></div>
+
+
+
+
     <div class="info-container">
     <div class="aa"></div>
 

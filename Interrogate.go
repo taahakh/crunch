@@ -28,8 +28,8 @@ var (
 
 // ----------------------------------------------------------------
 
-func query(r *html.Node, s Search) []*html.Node {
-	var f func(r *html.Node, s Search)
+func query(r *html.Node, s Search, once bool) []*html.Node {
+	// var f func(r *html.Node, s Search)
 	nodes := make([]*html.Node, 0, 5)
 	var searchWords [][]string
 
@@ -38,25 +38,35 @@ func query(r *html.Node, s Search) []*html.Node {
 		searchWords = append(searchWords, word)
 	}
 
-	f = func(r *html.Node, s Search) {
+	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode {
 			if s.Tag != "" {
 				if r.Data == s.Tag {
 					if querySearch(r.Attr, s, searchWords) {
 						nodes = append(nodes, r)
+						if once {
+							return true
+						}
 					}
 				}
 			} else {
 				if querySearch(r.Attr, s, searchWords) {
 					nodes = append(nodes, r)
+					if once {
+						return true
+					}
 				}
 			}
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-			f(c, s)
+			b := f(c, s)
+			if b {
+				return true
+			}
 		}
 
+		return false
 	}
 
 	f(r, s)
