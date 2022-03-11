@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	"golang.org/x/net/html"
@@ -17,16 +16,21 @@ import (
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
 
 type HTMLDocument struct {
-	Node         *Node    //HTML DOC Node
+	Node         Node     //HTML DOC Node
 	NodeList     NodeList // Current search result
 	IntialSearch bool
+	Complete     bool
 }
+
+// type HTMLDocument struct {
+// 	Node         *Node     //HTML DOC Node
+// 	NodeList     NodeList // Current search result
+// 	IntialSearch bool
+// 	Complete     bool
+// }
 
 type DocumentGroup struct {
 	Collector []HTMLDocument
-}
-
-type SearchingTypes interface {
 }
 
 // Add to the doc struct for each HTML
@@ -35,10 +39,10 @@ func CreateHTMLDocument(r io.Reader) HTMLDocument {
 	if err != nil {
 		fmt.Println("something")
 	}
-	return HTMLDocument{Node: &Node{Node: doc}, IntialSearch: false}
+	return HTMLDocument{Node: Node{Node: doc}, IntialSearch: false}
 }
 
-func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeList {
+func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
 	/*
 		SHOULD BE USED FOR SMALL NUMBER OF NODES AND FOR FINDING TAGS
 
@@ -60,44 +64,26 @@ func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *NodeL
 			tag.selector[attr='', attr='']
 
 	*/
-	h.NodeList.Nodes = nil
 	s := FinderParser(search)
+	if !(h.IntialSearch) {
+		h.IntialSearch = true
+		h.NodeList.Nodes = query(h.Node.Node, *s)
+	} else {
+		tempAppend := make([]*html.Node, 0, 5)
+		// var tempAppend []*html.Node
 
-	query(h.Node, *s, &h.NodeList)
-	return &h.NodeList
-}
+		for _, x := range h.NodeList.Nodes {
+			temp := query(x, *s)
+			tempAppend = append(tempAppend, temp...)
+		}
+		if h.Complete {
+			h.Complete = false
+			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: tempAppend}, IntialSearch: true}
+		}
+		h.NodeList.Nodes = tempAppend
+	}
 
-func (h *HTMLDocument) NewQuery(search string) *HTMLDocument {
-	h.NodeList.Nodes = nil
-	s := FinderParser(search)
-	h.NodeList.Nodes = newQuery(h.Node.Node, *s)
 	return h
-}
-
-func (h *HTMLDocument) QueryStrictly(search string, m ...func(doc *HTMLDocument)) {
-	/*
-
-
-	 */
-	h.NodeList.Nodes = nil
-	s := FinderParser(search)
-
-	queryStrictly(h.Node.Node, *s, &h.NodeList, false)
-
-	if len(m) > 0 {
-		m[0](h)
-	}
-}
-
-func (h *HTMLDocument) QueryStrictlyOnce(search string, m ...func(doc *HTMLDocument)) {
-	h.NodeList.Nodes = nil
-	s := FinderParser(search)
-
-	queryStrictly(h.Node.Node, *s, &h.NodeList, true)
-
-	if len(m) > 0 {
-		m[0](h)
-	}
 }
 
 func (h *HTMLDocument) Find(search string) *HTMLDocument {
@@ -111,7 +97,10 @@ func (h *HTMLDocument) Find(search string) *HTMLDocument {
 			temp := find(x, *s, false)
 			tempAppend = append(tempAppend, temp...)
 		}
-
+		if h.Complete {
+			h.Complete = false
+			return &HTMLDocument{Node: h.Node, NodeList: NodeList{Nodes: tempAppend}, IntialSearch: true}
+		}
 		h.NodeList.Nodes = tempAppend
 
 	}
@@ -217,6 +206,17 @@ func (h *HTMLDocument) PrintNodeList() {
 	}
 }
 
+func (h *HTMLDocument) Done() {
+	h.Complete = true
+}
+
+func (h *HTMLDocument) GetNode(i int) *HTMLDocument {
+	h.Node = h.NodeList.GetNode(i)
+	h.NodeList.Nodes = nil
+	h.IntialSearch = false
+	return h
+}
+
 func (n *Node) Attr() map[string]string {
 
 	list := make(map[string]string)
@@ -280,6 +280,28 @@ func (n *Node) ChildrenNode() []Node {
 	return nodes
 }
 
+func (n *Node) DirectChildrenNode() []Node {
+	var f func(r *html.Node)
+	nodes := make([]Node, 0, 10)
+
+	f = func(r *html.Node) {
+
+		c := r.NextSibling
+		for {
+			if c.Type == html.ElementNode {
+				nodes = append(nodes, Node{c})
+			}
+			c = c.NextSibling
+			if c == nil {
+				break
+			}
+		}
+	}
+
+	f(n.Node.FirstChild)
+	return nodes
+}
+
 func (n *Node) Text() string {
 	b := &bytes.Buffer{}
 	var f func(r *html.Node)
@@ -321,7 +343,7 @@ func (h *HTMLDocument) Nodify() []Node {
 func (h *HTMLDocument) Docify() []HTMLDocument {
 	doc := make([]HTMLDocument, 0, 3)
 	for _, x := range h.NodeList.Nodes {
-		doc = append(doc, HTMLDocument{Node: &Node{x}})
+		doc = append(doc, HTMLDocument{Node: Node{x}})
 	}
 	return doc
 }
@@ -347,12 +369,6 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	return list
 }
 
-func BreakWords(str string) []string {
-	var list []string
-	list = append(list, strings.Fields(str)...)
-	return list
-}
-
 func Exetime(name string) func() {
 	start := time.Now()
 	return func() {
@@ -364,20 +380,4 @@ func Exetime(name string) func() {
 
 func ToNode(r *html.Node) *Node {
 	return &Node{r}
-}
-
-func CompareAttrLists(search string, node string) bool {
-	searchList := BreakWords(search)
-	nodeList := BreakWords(node)
-	min := len(searchList)
-
-	for _, x := range searchList {
-		for _, y := range nodeList {
-			if x == y {
-				min--
-			}
-		}
-	}
-
-	return min == 0
 }

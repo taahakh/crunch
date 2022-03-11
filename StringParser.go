@@ -12,6 +12,7 @@ type Search struct {
 	Selector []Attribute
 	Attr     []Attribute
 }
+
 type SearchBuilder struct {
 	Bracket, FinishBracket, ValueState, EqualState, KeyPair bool
 	Left, Right, SelectorState                              bool

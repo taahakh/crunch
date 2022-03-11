@@ -812,6 +812,8 @@ var htmlText string = `
 
         <h1>What we provide . . . </h1>
         <div id="as" class="info-sml-bx title-separation">
+        <h1>What we provide . . . </h1>
+
           <h2>Free inventory and check-in inspection</h2>
           <h2>Rent guarantee</h2>
           <h2>Amazing customer service</h2>
@@ -835,6 +837,7 @@ var htmlText string = `
       </div>
 
       <div class="info-section info-bg2">
+      <h2>im here</h2>
         <div class="info-lg-bx extension">
           <h1>Have property to manage?</h1>
           <p>
