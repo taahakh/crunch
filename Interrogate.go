@@ -8,16 +8,19 @@ import (
 	"golang.org/x/net/html"
 )
 
+// For selector and Attr values
 type Attribute struct {
 	Name  string
 	Value string
 }
 
+// A wrapper for a number of functions
+// Possibility of being depreciated soon
 type NodeList struct {
 	Nodes []*html.Node // lets users have their freedom to manipulate the raw html.Node
-	nodes []Node       // private as we want methods to dictate what to do with these nodes
 }
 
+// A wrapper to access functions
 type Node struct {
 	Node *html.Node
 }
@@ -28,8 +31,10 @@ var (
 
 // ----------------------------------------------------------------
 
+// Finds words that we have given to search for. The search doesn't
+// exactly match the values given but if the word exists in the string
+// then it counts
 func query(r *html.Node, s Search, once bool) []*html.Node {
-	// var f func(r *html.Node, s Search)
 	nodes := make([]*html.Node, 0, 5)
 	var searchWords [][]string
 
@@ -73,6 +78,8 @@ func query(r *html.Node, s Search, once bool) []*html.Node {
 	return nodes
 }
 
+// searches for all instances of the words we want to find within
+// value strings attributes
 func querySearch(n []html.Attribute, s Search, word [][]string) bool {
 	count := len(s.Attr)
 
@@ -94,22 +101,22 @@ func querySearch(n []html.Attribute, s Search, word [][]string) bool {
 }
 
 // ---------------------------------------------------------------
+
+//  Finding the correct attr-value keypair
 func findAttr(r []html.Attribute, s Search) bool {
 
 	numToBeFound := len(s.Attr)
 	for _, x := range r {
-		for _, y := range s.Attr {
-			if y.Name == x.Key {
-				if y.Value == x.Val {
-					numToBeFound--
-				}
-			}
+		if attrvalCheck(x, s) {
+			numToBeFound--
 		}
 	}
 
 	return numToBeFound == 0
 }
 
+// Searches the exact string given for each value of attr
+// the values given must be exact in order to find node
 func find(r *html.Node, s Search, once bool) []*html.Node {
 	// var f func(r *html.Node, s Search) bool
 	nodes := make([]*html.Node, 0)
@@ -152,26 +159,17 @@ func find(r *html.Node, s Search, once bool) []*html.Node {
 }
 
 // ----------------------------------------------
-func attrvalCheck(r html.Attribute, s Search) bool {
-	for _, y := range s.Attr {
-		if y.Name == r.Key {
-			if y.Value == r.Val {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 func checkTag(tag, nodeTag string) bool {
 	// if there is not tag or there is a tag match --> return true
 	return tag == "" || tag == nodeTag
 }
 
+// Functions the same exact way as Find() but the number of attributes
+// given must match the same amount of node attributes
 func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 	var nodes = make([]*html.Node, 0)
 	selectorAttrlen := len(s.Attr) + len(s.Selector)
-	// var f func(r *html.Node, s Search) bool
 	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
 			if len(r.Attr) == selectorAttrlen {
@@ -208,18 +206,20 @@ func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 
 // --------------------------------------------------------------------------------------------
 
-func ContainsAttrString(str, toCompare string) bool {
-	if words := strings.Fields(str); len(words) > 0 {
-		// splits atrribute values
-		for _, y := range words {
-			if toCompare == y {
-				return true
-			}
-		}
-	}
-	return false
-}
+// func ContainsAttrString(str, toCompare string) bool {
+// 	if words := strings.Fields(str); len(words) > 0 {
+// 		// splits atrribute values
+// 		for _, y := range words {
+// 			if toCompare == y {
+// 				return true
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
 
+// Takes already word list from search struct and now taking in
+// node attr string. Comparing
 func CompareAttrLists(searchList []string, node string) bool {
 	nodeList := BreakWords(node)
 	min := len(searchList)
@@ -235,10 +235,24 @@ func CompareAttrLists(searchList []string, node string) bool {
 	return min == 0
 }
 
+// Breaks down the sentence into a word array
+// Used in query() to find words within sentences
 func BreakWords(str string) []string {
 	var list []string
 	list = append(list, strings.Fields(str)...)
 	return list
+}
+
+// Comparison check - needs attr-val keypair to be correct
+func attrvalCheck(r html.Attribute, s Search) bool {
+	for _, y := range s.Attr {
+		if y.Name == r.Key {
+			if y.Value == r.Val {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // --------------------------------------------------------------------------------------------

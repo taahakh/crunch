@@ -11,6 +11,7 @@ import "log"
 const (
 	DIREC_A string = "/Users/taaha/go/"
 	DIREC_B string = "/Users/taaha/Documents/GitHub/scraping/go/"
+	DIREC_C string = "/Users/taaha/go/src/github.com/taahakh/speed/data/spd/"
 )
 
 // type Ip struct {

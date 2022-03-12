@@ -13,9 +13,10 @@ import (
 
 // Node is the HTML document
 // Nodelist are the pointer list to the nodes that the tag/selector has been searched for
-// Simple struct to store relevant search data for the document
 // NodeList will get wiped for each search. Searched Data can be saved after search is their is a return type (usually []/*html.Node)
-
+// InitialSearch and Complete tracks how the Doc will be traversed
+// InitialSearch controls what nodes to apply functions
+// Complete dictates where to branch off to a new doc node
 type HTMLDocument struct {
 	Node         Node     //HTML DOC Node
 	NodeList     NodeList // Current search result
@@ -334,7 +335,6 @@ func (h *HTMLDocument) Nodify() []Node {
 		nodes = append(nodes, Node{x})
 	}
 
-	h.NodeList.nodes = nodes
 	return nodes
 }
 

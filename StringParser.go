@@ -175,7 +175,7 @@ func checkStringParse(r string, b *SearchBuilder, i int) {
 			return
 		}
 
-		if isAlphaNumeric(r) {
+		if isAlphaNumeric(r) || r == "-" {
 			b.Tracking = append(b.Tracking, r)
 			return
 		} else {
