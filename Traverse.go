@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"golang.org/x/net/html"
@@ -270,15 +271,20 @@ func (h *HTMLDocument) FindStrictlyOnce(search string, m ...func(doc *HTMLDocume
 	return doc
 }
 
-func (h *HTMLDocument) Attr() []map[string]string {
+func (h *HTMLDocument) Attr() map[string][]string {
 
-	list := make([]map[string]string, 0)
+	list := make(map[string][]string, 0)
 	for _, x := range h.NodeList.Nodes {
-		t := make(map[string]string, 0)
+		// t := make(map[string]string, 0)
 		for _, y := range x.Attr {
-			t[y.Key] = y.Val
+			// t[y.Key] = y.Val
+			if count, ok := list[y.Key]; ok {
+				list[y.Key] = append(count, y.Val)
+			} else {
+				list[y.Key] = []string{y.Val}
+			}
 		}
-		list = append(list, t)
+		// list = append(list, t)
 	}
 
 	return list
@@ -320,6 +326,31 @@ func (h *HTMLDocument) GiveNodeList() NodeList {
 
 func (h *HTMLDocument) GiveHTMLNodes() []*html.Node {
 	return h.NodeList.Nodes
+}
+
+func (h *HTMLDocument) Nodify() []Node {
+	nodes := make([]Node, 0, 10)
+	for _, x := range h.NodeList.Nodes {
+		nodes = append(nodes, Node{x})
+	}
+
+	h.NodeList.nodes = nodes
+	return nodes
+}
+
+func (h *HTMLDocument) Iterate(m func(doc Node)) {
+	for _, x := range h.NodeList.Nodes {
+		m(Node{x})
+	}
+}
+
+func (h *HTMLDocument) IterateBreak(m func(doc Node) bool) {
+	for _, x := range h.NodeList.Nodes {
+		b := m(Node{x})
+		if b {
+			break
+		}
+	}
 }
 
 func (n *Node) Attr() map[string]string {
@@ -367,13 +398,13 @@ func (n *Node) NextElementNode() Node {
 	return Node{}
 }
 
-func (n *Node) ChildrenNode() []Node {
+func (n *Node) ChildrenNode() *HTMLDocument {
 	var f func(r *html.Node)
-	nodes := make([]Node, 0, 10)
+	nodes := make([]*html.Node, 0, 10)
 
 	f = func(r *html.Node) {
 		if r.Type == html.ElementNode {
-			nodes = append(nodes, Node{r})
+			nodes = append(nodes, r)
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
@@ -382,19 +413,20 @@ func (n *Node) ChildrenNode() []Node {
 	}
 
 	f(n.Node)
-	return nodes
+
+	return &HTMLDocument{Node: *n, NodeList: NodeList{Nodes: nodes}, IntialSearch: true}
 }
 
-func (n *Node) DirectChildrenNode() []Node {
+func (n *Node) DirectChildrenNode() *HTMLDocument {
 	var f func(r *html.Node)
-	nodes := make([]Node, 0, 10)
+	nodes := make([]*html.Node, 0, 10)
 
 	f = func(r *html.Node) {
 
 		c := r.NextSibling
 		for {
 			if c.Type == html.ElementNode {
-				nodes = append(nodes, Node{c})
+				nodes = append(nodes, c)
 			}
 			c = c.NextSibling
 			if c == nil {
@@ -404,7 +436,7 @@ func (n *Node) DirectChildrenNode() []Node {
 	}
 
 	f(n.Node.FirstChild)
-	return nodes
+	return &HTMLDocument{Node: *n, NodeList: NodeList{Nodes: nodes}, IntialSearch: true}
 }
 
 func (n Node) Text() string {
@@ -422,6 +454,10 @@ func (n Node) Text() string {
 	f(n.Node)
 
 	return b.String()
+}
+
+func (n Node) CleanText() string {
+	return strings.TrimSpace(n.Text())
 }
 
 func (n *Node) RenderNode() string {
@@ -442,24 +478,6 @@ func (n *Node) FindAttr(attr string) string {
 
 func (n *NodeList) GetNode(index int) Node {
 	return Node{n.Nodes[index]}
-}
-
-func (h *HTMLDocument) Nodify() []Node {
-	nodes := make([]Node, 0, 10)
-	for _, x := range h.NodeList.Nodes {
-		nodes = append(nodes, Node{x})
-	}
-
-	h.NodeList.nodes = nodes
-	return nodes
-}
-
-func (h *HTMLDocument) Docify() []HTMLDocument {
-	doc := make([]HTMLDocument, 0, 3)
-	for _, x := range h.NodeList.Nodes {
-		doc = append(doc, HTMLDocument{Node: Node{x}})
-	}
-	return doc
 }
 
 func getAttr(r NodeList, once bool, elem []string) []string {
