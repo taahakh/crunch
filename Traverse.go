@@ -21,14 +21,18 @@ type HTMLDocument struct {
 	Node         Node     //HTML DOC Node
 	NodeList     NodeList // Current search result
 	IntialSearch bool
-	Complete     bool
+	Complete     bool // All searches and data interpretation is done on one object
 }
 
 type DocumentGroup struct {
 	Collector []HTMLDocument
 }
 
+// ----------------------------------------------------------------------------------------------------------
+
 // Add to the doc struct for each HTML
+// Decided to put Complete to true straight away
+// More convenient to code this way
 func HTMLDoc(r io.Reader) HTMLDocument {
 	doc, err := html.Parse(r)
 	if err != nil {
@@ -36,6 +40,11 @@ func HTMLDoc(r io.Reader) HTMLDocument {
 	}
 	return HTMLDocument{Node: Node{Node: doc}, IntialSearch: false, Complete: true}
 }
+
+// ----------------------------------------------------------------------------------------------------------
+
+// Selects control if they are going to search once or until all found
+// Controls how data is going to be stored and returned
 
 func (h *HTMLDocument) querySelect(search string, once bool) *HTMLDocument {
 	/*
@@ -62,12 +71,9 @@ func (h *HTMLDocument) querySelect(search string, once bool) *HTMLDocument {
 	var tempAppend []*html.Node
 	s := FinderParser(search)
 	if !(h.IntialSearch) {
-		// if !(h.Simple) {
 		if !(h.Complete) {
 			h.IntialSearch = true
 		}
-		// }
-		// h.NodeList.Nodes = query(h.Node.Node, *s, once)
 		tempAppend = query(h.Node.Node, *s, once)
 
 	} else {
@@ -105,7 +111,6 @@ func (h *HTMLDocument) findSelect(search string, once bool) *HTMLDocument {
 			h.IntialSearch = true
 		}
 		tempAppend = find(h.Node.Node, *s, once)
-		// h.NodeList.Nodes = find(h.Node.Node, *s, once)
 	} else {
 
 		if once {
@@ -145,7 +150,6 @@ func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocumen
 		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
 			return h
 		}
-		// h.NodeList.Nodes = findStrictly(h.Node.Node, *s, once)
 		tempAppend = findStrictly(h.Node.Node, *s, once)
 	} else {
 		if len(s.Attr) == 0 && len(s.Tag) > 0 || len(s.Selector) > 0 {
@@ -176,6 +180,13 @@ func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocumen
 
 	return h
 }
+
+// ----------------------------------------------------------------------------------------------------------
+
+// Simple function that calls any of the traversal code
+// More convenient and code in one place
+// Individual implementation are available and should be the main way to traverse the DOM
+// Can call a function to make code neater
 
 func (h *HTMLDocument) Search(f string, search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
 	var doc *HTMLDocument
@@ -272,31 +283,31 @@ func (h *HTMLDocument) FindStrictlyOnce(search string, m ...func(doc *HTMLDocume
 	return doc
 }
 
+// ----------------------------------------------------------------------------------------------------------
+
+// Creates an attribute map. All nodes attributes and values are gathered - put together
 func (h *HTMLDocument) Attr() map[string][]string {
 
 	list := make(map[string][]string, 0)
 	for _, x := range h.NodeList.Nodes {
-		// t := make(map[string]string, 0)
 		for _, y := range x.Attr {
-			// t[y.Key] = y.Val
 			if count, ok := list[y.Key]; ok {
 				list[y.Key] = append(count, y.Val)
 			} else {
 				list[y.Key] = []string{y.Val}
 			}
 		}
-		// list = append(list, t)
 	}
 
 	return list
 }
 
+// Specifically ask for the attr(s) that you want
 func (h *HTMLDocument) GetAttr(elem ...string) []string {
 	return getAttr(h.NodeList, false, elem)
 }
 
 func (h *HTMLDocument) GetAttrOnce(elem ...string) string {
-	defer Catch_Panic()
 	return getAttr(h.NodeList, true, elem)[0]
 }
 
@@ -306,10 +317,12 @@ func (h *HTMLDocument) PrintNodeList() {
 	}
 }
 
+// Makes Grouped searches - NOTE for example
 func (h *HTMLDocument) Done() {
 	h.Complete = true
 }
 
+// Resets the document search by starting from another node
 func (h *HTMLDocument) SetNode(i int) *HTMLDocument {
 	h.Node = h.NodeList.GetNode(i)
 	h.NodeList.Nodes = nil
@@ -329,8 +342,9 @@ func (h *HTMLDocument) GiveHTMLNodes() []*html.Node {
 	return h.NodeList.Nodes
 }
 
+// Makes all nodes in NodeList part of Node{}
 func (h *HTMLDocument) Nodify() []Node {
-	nodes := make([]Node, 0, 10)
+	nodes := make([]Node, len(h.NodeList.Nodes))
 	for _, x := range h.NodeList.Nodes {
 		nodes = append(nodes, Node{x})
 	}
@@ -338,6 +352,9 @@ func (h *HTMLDocument) Nodify() []Node {
 	return nodes
 }
 
+// We can iterate through the nodes through a single function
+// Some what similar to Nodify but Nodes are created on the go
+// and actions are taken
 func (h *HTMLDocument) Iterate(m func(doc Node)) {
 	for _, x := range h.NodeList.Nodes {
 		m(Node{x})
@@ -362,6 +379,7 @@ func (n *Node) Attr() map[string]string {
 	return list
 }
 
+// DOM node traversal
 func (n *Node) PrevSiblingNode() Node {
 	if n.Node.PrevSibling != nil {
 		n.Node = n.Node.PrevSibling
@@ -456,6 +474,7 @@ func (n Node) Text() string {
 	return b.String()
 }
 
+// Removes any whitespace. Good for p, h tags etc
 func (n Node) CleanText() string {
 	return strings.TrimSpace(n.Text())
 }

@@ -119,7 +119,7 @@ func findAttr(r []html.Attribute, s Search) bool {
 // the values given must be exact in order to find node
 func find(r *html.Node, s Search, once bool) []*html.Node {
 	// var f func(r *html.Node, s Search) bool
-	nodes := make([]*html.Node, 0)
+	nodes := make([]*html.Node, 1)
 
 	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode {
@@ -168,7 +168,7 @@ func checkTag(tag, nodeTag string) bool {
 // Functions the same exact way as Find() but the number of attributes
 // given must match the same amount of node attributes
 func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
-	var nodes = make([]*html.Node, 0)
+	var nodes = make([]*html.Node, 1)
 	selectorAttrlen := len(s.Attr) + len(s.Selector)
 	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
