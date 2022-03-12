@@ -27,7 +27,7 @@ type DocumentGroup struct {
 }
 
 // Add to the doc struct for each HTML
-func CreateHTMLDocument(r io.Reader) HTMLDocument {
+func HTMLDoc(r io.Reader) HTMLDocument {
 	doc, err := html.Parse(r)
 	if err != nil {
 		fmt.Println("something")
