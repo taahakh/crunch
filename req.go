@@ -44,10 +44,6 @@ func Get(url string) []byte {
 	return body
 }
 
-// func (r *Doc) AddTag(t Tag) {
-// 	r.Tags = append(r.Tags, t)
-// }
-
 // returns utf-8 string text
 func GetHtml(url string) string {
 	return string(Get(url))
