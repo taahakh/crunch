@@ -1,8 +1,7 @@
 package speed
 
 import (
-	"bytes"
-	"io"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -65,132 +64,78 @@ func ConnProxNoDefer(link, proxy string, timeout time.Duration) (*http.Response,
 	return res, err
 }
 
-// func oneToMultiIP(link, proxy string, timeout time.Duration, ch chan *http.Response, rec chan bool, wg *sync.WaitGroup) struct{} {
-
-// 	defer wg.Done()
-
-// 	go func() struct{} {
-// 		for {
-// 			select {
-// 			case <-rec:
-// 				close(ch)
-// 				return struct{}{}
-// 			}
-
-// 		}
-// 	}()
-
-// 	p, err := url.Parse(proxy)
-// 	if err != nil {
-// 		log.Println("Proxy parsing not working")
-// 	}
-
-// 	l, err := url.Parse(link)
-// 	if err != nil {
-// 		log.Println("Link parsing not working")
-// 	}
-
-// 	transport := &http.Transport{
-// 		Proxy: http.ProxyURL(p),
-// 	}
-
-// 	client := &http.Client{
-// 		Transport: transport,
-// 		Timeout:   timeout,
-// 	}
-
-// 	req, err := http.NewRequest("GET", l.String(), nil)
-// 	if err != nil {
-// 		log.Println("New request failed")
-// 	}
-
-// 	res, err := client.Do(req)
-// 	if err != nil {
-// 		log.Println("Client do not working")
-// 		return struct{}{}
-// 	}
-
-// 	ch <- res
-// 	rec <- true
-
-// 	return struct{}{}
-// }
-
-func oneToMultiIP(link, proxy string, timeout time.Duration, ch chan *http.Response, rec chan bool, wg *sync.WaitGroup) struct{} {
+func oneToMultiIP(link *url.URL, proxy string, timeout time.Duration, ch chan *http.Response, wg *sync.WaitGroup) struct{} {
 
 	defer wg.Done()
 
-	go func() struct{} {
-		for {
-			select {
-			case <-rec:
-				close(ch)
-				return struct{}{}
-			}
-
-		}
-	}()
-
-	res, err := ConnProxNoDefer(link, proxy, timeout)
+	p, err := url.Parse(proxy)
 	if err != nil {
+		log.Println("Proxy parsing not working")
+	}
+
+	transport := &http.Transport{
+		Proxy: http.ProxyURL(p),
+	}
+
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+
+	req, err := http.NewRequest("GET", link.String(), nil)
+	if err != nil {
+		log.Println("New request failed")
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Println("Client do not working")
 		return struct{}{}
 	}
 
+	defer res.Body.Close()
+
 	ch <- res
-	rec <- true
 
 	return struct{}{}
 }
 
-func LinktoMultiIP(dest string, ips []string, timeout string) HTMLDocument {
+func LinktoMultiIP(dest, timeout string, ips []string, nWorkers int) {
 	t, err := time.ParseDuration(timeout)
 	if err != nil {
 		log.Println("no parse")
 	}
 
-	var wg sync.WaitGroup
-	ch := make(chan *http.Response)
-	rec := make(chan bool)
-	// str := make([]*http.Response, 0)
-	var str *http.Response
+	p, err := url.Parse(dest)
+	if err != nil {
+		log.Println("Destination parsing failed")
+	}
 
-	for _, ip := range ips {
+	var wg sync.WaitGroup
+	ch := make(chan *http.Response) // output
+	in := make(chan string)         // input
+
+	for i := 0; i < nWorkers; i++ {
+		go worker(in, ch, p, t, &wg)
+	}
+
+	for _, x := range ips {
 		wg.Add(1)
-		go oneToMultiIP(dest, ip, t, ch, rec, &wg)
+		in <- x
 	}
 
 	go func() {
 		wg.Wait()
+		// time.Sleep(time.Minute * 3)
+		fmt.Println("did i close")
 		close(ch)
 	}()
 
-	for item := range ch {
-		// str = append(str, item)
-		str = item
+	fmt.Println("Have i closed")
+}
+
+func worker(jobs <-chan string, results chan *http.Response, link *url.URL, timeout time.Duration, wg *sync.WaitGroup) {
+	for x := range jobs {
+		oneToMultiIP(link, x, timeout, results, wg)
 	}
-
-	defer str.Body.Close()
-
-	conv, err := io.ReadAll(str.Body)
-	if err != nil {
-		log.Println("Failed ioutil")
-	}
-	// fmt.Println(string(conv))
-	test := HTMLDoc(bytes.NewReader(conv))
-	test.Find("footer").PrintNodeList()
-	return test
-	// d, err := io.ReadAll(str.Body)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// return d
-
-	// for i, x := range str {
-	// 	defer x.Body.Close()
-	// 	d, err := io.ReadAll(x.Body)
-	// 	if err != nil {
-	// 		log.Println(err)
-	// 	}
-	// 	fmt.Println(i, string(d))
-	// }
 }
