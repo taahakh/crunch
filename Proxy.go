@@ -1,7 +1,7 @@
 package speed
 
 import (
-	"fmt"
+	"bytes"
 	"io"
 	"log"
 	"net/http"
@@ -142,7 +142,7 @@ func oneToMultiIP(link, proxy string, timeout time.Duration, ch chan *http.Respo
 	return struct{}{}
 }
 
-func LinktoMultiIP(dest string, ips []string, timeout string) {
+func LinktoMultiIP(dest string, ips []string, timeout string) HTMLDocument {
 	t, err := time.ParseDuration(timeout)
 	if err != nil {
 		log.Println("no parse")
@@ -151,7 +151,8 @@ func LinktoMultiIP(dest string, ips []string, timeout string) {
 	var wg sync.WaitGroup
 	ch := make(chan *http.Response)
 	rec := make(chan bool)
-	str := make([]*http.Response, 0)
+	// str := make([]*http.Response, 0)
+	var str *http.Response
 
 	for _, ip := range ips {
 		wg.Add(1)
@@ -164,15 +165,32 @@ func LinktoMultiIP(dest string, ips []string, timeout string) {
 	}()
 
 	for item := range ch {
-		str = append(str, item)
+		// str = append(str, item)
+		str = item
 	}
 
-	for i, x := range str {
-		defer x.Body.Close()
-		d, err := io.ReadAll(x.Body)
-		if err != nil {
-			log.Println(err)
-		}
-		fmt.Println(i, string(d))
+	defer str.Body.Close()
+
+	conv, err := io.ReadAll(str.Body)
+	if err != nil {
+		log.Println("Failed ioutil")
 	}
+	// fmt.Println(string(conv))
+	test := HTMLDoc(bytes.NewReader(conv))
+	test.Find("footer").PrintNodeList()
+	return test
+	// d, err := io.ReadAll(str.Body)
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	// return d
+
+	// for i, x := range str {
+	// 	defer x.Body.Close()
+	// 	d, err := io.ReadAll(x.Body)
+	// 	if err != nil {
+	// 		log.Println(err)
+	// 	}
+	// 	fmt.Println(i, string(d))
+	// }
 }

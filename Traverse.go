@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/charset"
 )
 
 // Node is the HTML document
@@ -35,6 +38,14 @@ type DocumentGroup struct {
 // More convenient to code this way
 func HTMLDoc(r io.Reader) HTMLDocument {
 	doc, err := html.Parse(r)
+	if err != nil {
+		fmt.Println("something")
+	}
+	return HTMLDocument{Node: Node{Node: doc}, IntialSearch: false, Complete: true}
+}
+
+func HTMLDocBytes(b *[]byte) HTMLDocument {
+	doc, err := StringEasyParse(b)
 	if err != nil {
 		fmt.Println("something")
 	}
@@ -531,4 +542,17 @@ func Exetime(name string) func() {
 
 func ToNode(r *html.Node) *Node {
 	return &Node{r}
+}
+
+// --------------------------------------------------------------
+func HTMLDocUTF8(r *http.Response) HTMLDocument {
+	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println("Failed utf8set")
+	}
+	bytes, err := ioutil.ReadAll(utf8set)
+	if err != nil {
+		log.Println("Failed ioutil")
+	}
+	return HTMLDocBytes(&bytes)
 }

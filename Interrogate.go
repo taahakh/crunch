@@ -1,6 +1,7 @@
 package speed
 
 import (
+	"bytes"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -260,6 +261,11 @@ func attrvalCheck(r html.Attribute, s Search) bool {
 // 	return html.Parse(r)
 // }
 
-// func EasyParse(s *[]byte) (*html.Node, error) {
-// 	return html.Parse(bytes.NewReader(*s))
-// }
+func EasyParse(s *[]byte) (*html.Node, error) {
+	return html.Parse(bytes.NewReader(*s))
+}
+
+func StringEasyParse(s *[]byte) (*html.Node, error) {
+	str := string(*s)
+	return html.Parse(strings.NewReader(str))
+}
