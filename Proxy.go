@@ -126,7 +126,6 @@ func LinktoMultiIP(dest, timeout string, ips []string, nWorkers int) {
 
 	go func() {
 		wg.Wait()
-		// time.Sleep(time.Minute * 3)
 		fmt.Println("did i close")
 		close(ch)
 	}()
@@ -138,4 +137,5 @@ func worker(jobs <-chan string, results chan *http.Response, link *url.URL, time
 	for x := range jobs {
 		oneToMultiIP(link, x, timeout, results, wg)
 	}
+
 }
