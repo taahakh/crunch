@@ -769,3 +769,35 @@ func collectText(r *html.Node, b *bytes.Buffer) {
 // 	html.Render(w, r)
 // 	return buf.String()
 // }
+
+
+	// loop:
+	// 	for {
+	// 		if counter%2 == 0 {
+	// 			for {
+	// 				select {
+	// 				case data = <-ch:
+	// 					fmt.Println("LOOP broken")
+	// 					done <- struct{}{}
+	// 					break loop
+	// 				case <-done:
+	// 					// fmt.Println("finished")
+	// 					goFinish++
+	// 				}
+	// 				if goFinish%2 == 0 {
+	// 					// fmt.Println("Breaking")
+	// 					break
+	// 				}
+	// 			}
+	// 		}
+
+	// 		if counter == len(ips) {
+	// 			// time.Sleep(t)
+	// 			// fmt.Println("sleeping")
+	// 			break
+	// 		}
+	// 		counter++
+	// 		// wg.Add(1)
+	// 		in <- ips[counter-1]
+
+	// 	}
