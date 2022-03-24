@@ -52,6 +52,20 @@ func HTMLDocBytes(b *[]byte) HTMLDocument {
 	return HTMLDocument{Node: Node{Node: doc}, IntialSearch: false, Complete: true}
 }
 
+// Requests are going to be encoded in utf-8 so it needs to be set in a format readable by the parser
+func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
+	defer r.Body.Close()
+	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println("Failed utf8set")
+	}
+	bytes, err := ioutil.ReadAll(utf8set)
+	if err != nil {
+		log.Println("Failed ioutil")
+	}
+	return HTMLDocBytes(&bytes), err
+}
+
 // ----------------------------------------------------------------------------------------------------------
 
 // Selects control if they are going to search once or until all found
@@ -545,15 +559,3 @@ func ToNode(r *html.Node) *Node {
 }
 
 // --------------------------------------------------------------
-func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
-	defer r.Body.Close()
-	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
-	if err != nil {
-		log.Println("Failed utf8set")
-	}
-	bytes, err := ioutil.ReadAll(utf8set)
-	if err != nil {
-		log.Println("Failed ioutil")
-	}
-	return HTMLDocBytes(&bytes), err
-}

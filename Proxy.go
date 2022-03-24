@@ -10,12 +10,21 @@ import (
 	"time"
 )
 
-type IPList struct {
-	IP   string
-	Port string
+type RequestSetup struct {
+	IP      string        // must be in the format of [protocol]://[address]
+	Cookie  *http.Cookie  // optional
+	Headers *http.Header  // optional
+	Timeout time.Duration // how long it should wait for it to connect
+	Retries int           // number of retires this ip should be used if it fails to connect to proxy
 }
 
-type ReqResult struct {
+type RequestJar struct {
+	req     []RequestSetup
+	links   []string
+	Timeout time.Duration
+}
+
+type RequestResult struct {
 	mu      sync.Mutex
 	res     []HTMLDocument
 	counter int
@@ -200,7 +209,7 @@ func worker(jobs <-chan string, results chan *http.Response, done chan struct{},
 	}
 }
 
-func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struct{}, rr *ReqResult, wg *sync.WaitGroup) struct{} {
+func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struct{}, rr *RequestResult, wg *sync.WaitGroup) struct{} {
 	defer wg.Done()
 
 	client := req.proxyClient
@@ -217,11 +226,6 @@ func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struc
 	fmt.Println("------------------------------PASSSEDDDDDDDDDDD-------------------------------")
 
 	defer resp.Body.Close()
-	// data, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	log.Println("Couldn't read body")
-	// 	return struct{}{}
-	// }
 
 	data, err := HTMLDocUTF8(resp)
 	if err != nil {
@@ -235,21 +239,21 @@ func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struc
 	return struct{}{}
 }
 
-func groupWorker(req <-chan *SingleRequest, out chan *SingleRequest, done chan struct{}, rr *ReqResult, wg *sync.WaitGroup) {
+func groupWorker(req <-chan *SingleRequest, out chan *SingleRequest, done chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
 	for x := range req {
 		wg.Add(1)
 		ProxyConnection(x, out, done, rr, wg)
 	}
 }
 
-func GroupScrape(gr GroupRequest, nWorkers, retries int) *ReqResult {
+func GroupScrape(gr GroupRequest, nWorkers, retries int) *RequestResult {
 	proxies := ConvertToURL(gr.Ips)
 	links := ConvertToURL(gr.Links)
 	pc := CreateProxyClient(proxies, gr.Timeout)
 	lr := CreateLinkRequest(links)
 
 	var wg sync.WaitGroup
-	var rr ReqResult
+	var rr RequestResult
 	req := make(chan *SingleRequest, 10)
 	out := make(chan *SingleRequest, 10)
 	done := make(chan struct{}, 5)
@@ -303,17 +307,12 @@ loop:
 		return
 	}()
 
-	for i := 0; i < len(rr.res); i++ {
-		fmt.Println(i, "ok")
-	}
-
 	return &rr
 
 }
 
 func CreateLinkRequest(links []*url.URL) []*http.Request {
-	var requests []*http.Request
-	// requests := make([]*http.Request, len(links))
+	requests := make([]*http.Request, 0, len(links))
 	for _, x := range links {
 		req, err := http.NewRequest("GET", x.String(), nil)
 		if err != nil {
@@ -325,7 +324,6 @@ func CreateLinkRequest(links []*url.URL) []*http.Request {
 }
 
 func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client {
-	// var clients []*http.Client
 	clients := make([]*http.Client, 0, len(proxies))
 
 	for i := 0; i < len(proxies); i++ {
@@ -342,7 +340,6 @@ func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client
 }
 
 func ConvertToURL(c []string) []*url.URL {
-	// var urls []*url.URL
 	urls := make([]*url.URL, 0, len(c))
 	for _, x := range c {
 		l, err := url.Parse(x)
@@ -354,20 +351,20 @@ func ConvertToURL(c []string) []*url.URL {
 	return urls
 }
 
-func (c *ReqResult) add(b HTMLDocument) {
+func (c *RequestResult) add(b HTMLDocument) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.res = append(c.res, b)
 	c.counter++
 }
 
-func (c *ReqResult) Read() []HTMLDocument {
+func (c *RequestResult) Read() []HTMLDocument {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
 }
 
-func (c *ReqResult) Count() int {
+func (c *RequestResult) Count() int {
 	return c.counter
 }
 
