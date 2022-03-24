@@ -545,7 +545,8 @@ func ToNode(r *html.Node) *Node {
 }
 
 // --------------------------------------------------------------
-func HTMLDocUTF8(r *http.Response) HTMLDocument {
+func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
+	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
 		log.Println("Failed utf8set")
@@ -554,5 +555,5 @@ func HTMLDocUTF8(r *http.Response) HTMLDocument {
 	if err != nil {
 		log.Println("Failed ioutil")
 	}
-	return HTMLDocBytes(&bytes)
+	return HTMLDocBytes(&bytes), err
 }

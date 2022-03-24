@@ -2,7 +2,6 @@ package speed
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,7 +17,7 @@ type IPList struct {
 
 type ReqResult struct {
 	mu      sync.Mutex
-	res     [][]byte
+	res     []HTMLDocument
 	counter int
 }
 
@@ -187,8 +186,8 @@ loop:
 
 	fmt.Println("Have i closed")
 	fmt.Println(runtime.NumGoroutine())
-
 }
+
 func worker(jobs <-chan string, results chan *http.Response, done chan struct{}, end chan struct{}, link *url.URL, timeout time.Duration, wg *sync.WaitGroup) {
 	for {
 		select {
@@ -207,24 +206,27 @@ func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struc
 	client := req.proxyClient
 	request := req.link
 
-	// fmt.Println("Client: ", client.Transport)
-	// fmt.Println("Request: ", request)
-
 	resp, err := client.Do(request)
 	if err != nil {
 		log.Println("ProxyConnection: Client failed")
 		req.decrement()
 		ch <- req
-		// wg.Done()
 		return struct{}{}
 	}
 
 	fmt.Println("------------------------------PASSSEDDDDDDDDDDD-------------------------------")
 
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
+	// data, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	log.Println("Couldn't read body")
+	// 	return struct{}{}
+	// }
+
+	data, err := HTMLDocUTF8(resp)
 	if err != nil {
 		log.Println("Couldn't read body")
+		return struct{}{}
 	}
 
 	rr.add(data)
@@ -323,8 +325,8 @@ func CreateLinkRequest(links []*url.URL) []*http.Request {
 }
 
 func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client {
-	var clients []*http.Client
-	// clients := make([]*http.Client, len(proxies))
+	// var clients []*http.Client
+	clients := make([]*http.Client, 0, len(proxies))
 
 	for i := 0; i < len(proxies); i++ {
 		transport := &http.Transport{
@@ -340,8 +342,8 @@ func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client
 }
 
 func ConvertToURL(c []string) []*url.URL {
-	var urls []*url.URL
-	// urls := make([]*url.URL, len(c))
+	// var urls []*url.URL
+	urls := make([]*url.URL, 0, len(c))
 	for _, x := range c {
 		l, err := url.Parse(x)
 		if err != nil {
@@ -352,14 +354,14 @@ func ConvertToURL(c []string) []*url.URL {
 	return urls
 }
 
-func (c *ReqResult) add(b []byte) {
+func (c *ReqResult) add(b HTMLDocument) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.res = append(c.res, b)
 	c.counter++
 }
 
-func (c *ReqResult) Read() [][]byte {
+func (c *ReqResult) Read() []HTMLDocument {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
