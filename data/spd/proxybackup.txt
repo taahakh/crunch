@@ -10,19 +10,17 @@ import (
 	"time"
 )
 
-// Cookie, Headers are linked to one ip
 type RequestSetup struct {
-	IP      *url.URL      // must be in the format of [protocol]://[address]
+	IP      string        // must be in the format of [protocol]://[address]
 	Cookie  *http.Cookie  // optional
 	Headers *http.Header  // optional
 	Timeout time.Duration // how long it should wait for it to connect
 	Retries int           // number of retires this ip should be used if it fails to connect to proxy
 }
 
-// Groups of ips and links
 type RequestJar struct {
-	Req     []RequestSetup
-	Links   []string
+	req     []RequestSetup
+	links   []string
 	Timeout time.Duration
 }
 
@@ -310,6 +308,7 @@ loop:
 	}()
 
 	return &rr
+
 }
 
 func CreateLinkRequest(links []*url.URL) []*http.Request {
@@ -371,48 +370,4 @@ func (c *RequestResult) Count() int {
 
 func (rt *SingleRequest) decrement() {
 	rt.retries -= 1
-}
-
-func LinearRequestSetup(ips []*url.URL, cookies []*http.Cookie, headers []*http.Header, timeout time.Duration, retries int) []*RequestSetup {
-	rs := make([]*RequestSetup, 0, len(ips))
-	for i, x := range ips {
-		rs = append(rs, &RequestSetup{
-			IP:      x,
-			Cookie:  cookies[i],
-			Headers: headers[i],
-			Timeout: timeout,
-			Retries: retries,
-		})
-	}
-	return rs
-}
-
-func CreateRequestSetup(ip *url.URL, cookie *http.Cookie, header *http.Header, timeout time.Duration, retries int) *RequestSetup {
-	return &RequestSetup{
-		IP:      ip,
-		Cookie:  cookie,
-		Headers: header,
-		Timeout: timeout,
-		Retries: retries,
-	}
-}
-
-func ProxyClient(rs []*RequestSetup) []*http.Client {
-	clients := make([]*http.Client, 0, len(rs)) // Number of webpages in play
-
-	for _, x := range rs {
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(x.IP),
-		}
-
-		clients := &http.Client{
-			Transport: transport,
-		}
-
-		if x.Cookie != nil {
-			clients.Jar.SetCookies(x.IP, []*http.Cookie{x.Cookie})
-		}
-	}
-
-	return clients
 }
