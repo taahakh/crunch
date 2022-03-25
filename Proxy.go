@@ -2,6 +2,7 @@ package speed
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,8 +23,19 @@ type RequestSetup struct {
 // Groups of ips and links
 type RequestJar struct {
 	Req     []RequestSetup
-	Links   []string
-	Timeout time.Duration
+	Clients []*http.Client
+	Links   []*http.Request // this is intially in the form of url.URL but is then converted to string
+}
+
+type RequestSend struct {
+	Client  *http.Client
+	Request *http.Request
+	Retries int
+}
+
+type RequestCollection struct {
+	RJ *RequestJar
+	RS []*RequestSend
 }
 
 type RequestResult struct {
@@ -415,4 +427,36 @@ func ProxyClient(rs []*RequestSetup) []*http.Client {
 	}
 
 	return clients
+}
+
+func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return req
+}
+
+func SimpleSetup(proxy []string, urls []string, timeout time.Duration, retries int) *RequestCollection {
+	var req []*http.Request // links
+	var cli []*http.Client  // proxies
+
+	reqUrl := ConvertToURL(urls)
+	cliUrl := ConvertToURL(proxy)
+
+	req = CreateLinkRequest(reqUrl)
+	cli = CreateProxyClient(cliUrl, timeout)
+
+	rj := &RequestJar{
+		Clients: cli,
+		Links:   req,
+	}
+
+	rs := rj.CreateHandle(retries)
+
+	return &RequestCollection{
+		RJ: rj,
+		RS: rs,
+	}
 }
