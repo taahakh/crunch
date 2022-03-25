@@ -5,10 +5,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	// "net/proxy"
 	"net/url"
 	"runtime"
 	"sync"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 // Cookie, Headers are linked to one ip
@@ -64,6 +68,19 @@ func GenodeRead(csv [][]string, protocol string) []string {
 			continue
 		}
 		ipList = append(ipList, protocol+"://"+csv[i][0]+":"+csv[i][7])
+	}
+
+	return ipList
+}
+
+func GenodeReadSOCKS(csv [][]string) []string {
+	var ipList []string
+
+	for i := range csv {
+		if i == 0 {
+			continue
+		}
+		ipList = append(ipList, csv[i][0]+":"+csv[i][1])
 	}
 
 	return ipList
@@ -459,4 +476,21 @@ func SimpleSetup(proxy []string, urls []string, timeout time.Duration, retries i
 		RJ: rj,
 		RS: rs,
 	}
+}
+
+func CreateSOCKS5Client(ip string) *http.Client {
+	dials, err := proxy.SOCKS5("tcp", ip, nil, proxy.Direct)
+	if err != nil {
+		fmt.Println("error connecting to proxy", err)
+	}
+	transport := &http.Transport{
+		Dial: dials.Dial,
+	}
+
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   time.Second * 3,
+	}
+
+	return client
 }

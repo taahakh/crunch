@@ -9,11 +9,12 @@ import (
 func ScrapeSession(rj *RequestCollection, n int) {
 	var wg sync.WaitGroup
 	var rr RequestResult
-	jobs := make(chan *RequestSend, 5)
-	retry := make(chan *RequestSend, 2)
+	jobs := make(chan *RequestSend, n+1)
+	retry := make(chan *RequestSend, n+1)
+	closeChannel := make(chan struct{}, n+1)
 
 	for i := 0; i < n; i++ {
-		go SSWorker(jobs, retry, &rr, &wg)
+		go SSWorker(jobs, retry, closeChannel, &rr, &wg)
 	}
 
 	for _, x := range rj.RS {
@@ -23,6 +24,7 @@ func ScrapeSession(rj *RequestCollection, n int) {
 	cClients := 0
 	cDone := 0
 
+loop:
 	for {
 		select {
 		case item := <-retry:
@@ -37,29 +39,32 @@ func ScrapeSession(rj *RequestCollection, n int) {
 				}
 				jobs <- item
 			}
-		}
-
-		if cDone == len(rj.RJ.Links) {
-			break
+		default:
+			if cDone == len(rj.RJ.Links) {
+				closeChannel <- struct{}{}
+				break loop
+			}
 		}
 	}
 
 	go func() {
 		wg.Wait()
-		close(jobs)
-		fmt.Println("Goroutine other closing")
-		return
-		// close()
+		close(closeChannel)
 	}()
 
 	fmt.Println("Im here??")
 
 }
 
-func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
-	for x := range jobs {
-		wg.Add(1)
-		HandleRequest(x, retry, rr, wg)
+func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, closeChannel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
+	for {
+		select {
+		case item := <-jobs:
+			wg.Add(1)
+			HandleRequest(item, retry, rr, wg)
+		case <-closeChannel:
+			return
+		}
 	}
 }
 
@@ -86,6 +91,8 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	}
 
 	rr.add(data)
+	req.Retries = 0
+	retry <- req
 
 	return struct{}{}
 }
