@@ -15,31 +15,29 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// Cookie, Headers are linked to one ip
-type RequestSetup struct {
-	IP      *url.URL      // must be in the format of [protocol]://[address]
-	Cookie  *http.Cookie  // optional
-	Headers *http.Header  // optional
-	Timeout time.Duration // how long it should wait for it to connect
-	Retries int           // number of retires this ip should be used if it fails to connect to proxy
-}
+const (
+	UntilComplete = ""
+)
 
 // Groups of ips and links
 type RequestJar struct {
-	Req     []RequestSetup
 	Clients []*http.Client
 	Links   []*http.Request // this is intially in the form of url.URL but is then converted to string
 }
 
 type RequestSend struct {
+	// Retries <= 0  - tries unless finished
 	Client  *http.Client
 	Request *http.Request
 	Retries int
 }
 
 type RequestCollection struct {
-	RJ *RequestJar
-	RS []*RequestSend
+	// Finish tells us when we want the webscrape to end by no matter what
+	// Finish nil will go on until everything is finished
+	RJ     *RequestJar
+	RS     []*RequestSend
+	Finish string // how long it should take before the rc should end
 }
 
 type RequestResult struct {
@@ -68,19 +66,6 @@ func GenodeRead(csv [][]string, protocol string) []string {
 			continue
 		}
 		ipList = append(ipList, protocol+"://"+csv[i][0]+":"+csv[i][7])
-	}
-
-	return ipList
-}
-
-func GenodeReadSOCKS(csv [][]string) []string {
-	var ipList []string
-
-	for i := range csv {
-		if i == 0 {
-			continue
-		}
-		ipList = append(ipList, csv[i][0]+":"+csv[i][1])
 	}
 
 	return ipList
@@ -402,50 +387,6 @@ func (rt *SingleRequest) decrement() {
 	rt.retries -= 1
 }
 
-func LinearRequestSetup(ips []*url.URL, cookies []*http.Cookie, headers []*http.Header, timeout time.Duration, retries int) []*RequestSetup {
-	rs := make([]*RequestSetup, 0, len(ips))
-	for i, x := range ips {
-		rs = append(rs, &RequestSetup{
-			IP:      x,
-			Cookie:  cookies[i],
-			Headers: headers[i],
-			Timeout: timeout,
-			Retries: retries,
-		})
-	}
-	return rs
-}
-
-func CreateRequestSetup(ip *url.URL, cookie *http.Cookie, header *http.Header, timeout time.Duration, retries int) *RequestSetup {
-	return &RequestSetup{
-		IP:      ip,
-		Cookie:  cookie,
-		Headers: header,
-		Timeout: timeout,
-		Retries: retries,
-	}
-}
-
-func ProxyClient(rs []*RequestSetup) []*http.Client {
-	clients := make([]*http.Client, 0, len(rs)) // Number of webpages in play
-
-	for _, x := range rs {
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(x.IP),
-		}
-
-		clients := &http.Client{
-			Transport: transport,
-		}
-
-		if x.Cookie != nil {
-			clients.Jar.SetCookies(x.IP, []*http.Cookie{x.Cookie})
-		}
-	}
-
-	return clients
-}
-
 func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -489,7 +430,6 @@ func CreateSOCKS5Client(ip string) *http.Client {
 
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   time.Second * 3,
 	}
 
 	return client

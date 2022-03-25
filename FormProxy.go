@@ -4,9 +4,27 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 )
 
 func ScrapeSession(rj *RequestCollection, n int) {
+	var t time.Duration
+	var setSleep bool
+
+	if rj.Finish == UntilComplete {
+		setSleep = false
+	} else {
+		var err error
+
+		t, err = time.ParseDuration(rj.Finish)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		setSleep = true
+	}
+
 	var wg sync.WaitGroup
 	var rr RequestResult
 	jobs := make(chan *RequestSend, n+1)
@@ -24,6 +42,14 @@ func ScrapeSession(rj *RequestCollection, n int) {
 	cClients := 0
 	cDone := 0
 
+	go func() {
+		if setSleep {
+			time.Sleep(t)
+			fmt.Println("Finsihed sleeping")
+			closeChannel <- struct{}{}
+		}
+	}()
+
 loop:
 	for {
 		select {
@@ -39,6 +65,8 @@ loop:
 				}
 				jobs <- item
 			}
+		case <-closeChannel:
+			break loop
 		default:
 			if cDone == len(rj.RJ.Links) {
 				closeChannel <- struct{}{}
@@ -49,10 +77,9 @@ loop:
 
 	go func() {
 		wg.Wait()
+		fmt.Println("Done waiting?")
 		close(closeChannel)
 	}()
-
-	fmt.Println("Im here??")
 
 }
 
