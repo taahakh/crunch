@@ -35,9 +35,13 @@ type RequestSend struct {
 type RequestCollection struct {
 	// Finish tells us when we want the webscrape to end by no matter what
 	// Finish nil will go on until everything is finished
-	RJ     *RequestJar
-	RS     []*RequestSend
-	Finish string // how long it should take before the rc should end
+	Identifier int
+	RJ         *RequestJar
+	RS         []*RequestSend
+	Result     *RequestResult
+	Cancel     chan struct{}
+	Finish     string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
+	Done       bool   // State when this is done
 }
 
 type RequestResult struct {
