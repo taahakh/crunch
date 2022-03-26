@@ -1,6 +1,7 @@
 package speed
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -11,12 +12,14 @@ type Pool struct {
 	name        string // Pool Name
 	collections map[string]*RequestCollection
 	end         chan string
+	finished    []string
 }
 
 // Setting an identifier for our pool
 func (p *Pool) SetName(name string) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
+	p.finished = make([]string, 0)
 	go p.captureCompleted()
 }
 
@@ -26,6 +29,7 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
+		rc.Notify = &p.end
 		p.collections[col] = rc
 	} else {
 		log.Println("This collection ID already exists")
@@ -33,10 +37,17 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 }
 
 // Delete collection from the map
-func (p *Pool) Remove(col string) {
+func (p *Pool) Remove(col string) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	delete(p.collections, col)
+	if val, ok := p.collections[col]; ok {
+		if val.Done {
+			delete(p.collections, col)
+			return nil
+		}
+	}
+
+	return errors.New("Cannot remove until this is collection is finished")
 }
 
 // Unsafe removal. Should be used when collection is safe to remove
@@ -80,7 +91,7 @@ func (p *Pool) Cancel(id string) {
 }
 
 //  Removes successfully when the requestcollection has been given done status
-func (p *Pool) PopIfCompleted(id string) *RequestResult {
+func (p *Pool) PopIfCompleted(id string) (*RequestResult, error) {
 	var rr *RequestResult
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -88,11 +99,11 @@ func (p *Pool) PopIfCompleted(id string) *RequestResult {
 		if val.Done {
 			rr = val.Result
 			p.rem(id)
-			return rr
+			return rr, nil
 		}
 	}
 
-	return rr
+	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
 }
 
 // See how many Collections are running
@@ -108,6 +119,13 @@ func (p *Pool) NumOfRunning() int {
 	return counter
 }
 
+// Return how many operations have been completed
+func (p *Pool) Completed() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.finished)
+}
+
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
 	switch method {
@@ -117,8 +135,14 @@ func (p *Pool) Run(id, method string, n int) {
 	}
 }
 
+// Garbage collector for the pool
 func (p *Pool) captureCompleted() {
-
+	p.end = make(chan string, 1)
+	for x := range p.end {
+		p.mu.Lock()
+		p.finished = append(p.finished, x)
+		p.mu.Unlock()
+	}
 }
 
 // ------------------------------------------------------------------------

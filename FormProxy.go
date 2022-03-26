@@ -86,6 +86,7 @@ loop:
 		close(closeChannel)
 		rj.Done = true
 		rj.Safe <- struct{}{}
+		*rj.Notify <- rj.Identity
 	}()
 
 }

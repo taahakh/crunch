@@ -36,11 +36,11 @@ type RequestCollection struct {
 	// Finish tells us when we want the webscrape to end by no matter what
 	// Finish nil will go on until everything is finished
 
-	// POOL Usage
+	/* ---------- POOL Usage -------------- */
 	Identity string        // Pool usage
 	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true
-	Notify   chan string   // Telling the pool which collections have stopped running
-	// METHOD usage
+	Notify   *chan string  // Telling the pool which collections have stopped running. Sends the identity of this collection back to the pool
+	/* ---------- METHOD usage ------------ */
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
