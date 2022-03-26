@@ -27,9 +27,15 @@ func ScrapeSession(rj *RequestCollection, n int) {
 
 	var wg sync.WaitGroup
 	var rr RequestResult
+
+	rj.Result = &rr
+	rr.Alive = "I SEE THIS AFTERWARDS"
+
+	rj.Cancel = make(chan struct{}, n+1)
 	jobs := make(chan *RequestSend, n+1)
 	retry := make(chan *RequestSend, n+1)
-	closeChannel := make(chan struct{}, n+1)
+	rj.Safe = make(chan struct{}, n+1)
+	closeChannel := rj.Cancel
 
 	for i := 0; i < n; i++ {
 		go SSWorker(jobs, retry, closeChannel, &rr, &wg)
@@ -45,7 +51,7 @@ func ScrapeSession(rj *RequestCollection, n int) {
 	go func() {
 		if setSleep {
 			time.Sleep(t)
-			fmt.Println("Finsihed sleeping")
+			fmt.Println("Finished Sleeping")
 			closeChannel <- struct{}{}
 		}
 	}()
@@ -79,6 +85,9 @@ loop:
 		wg.Wait()
 		fmt.Println("Done waiting?")
 		close(closeChannel)
+		fmt.Println(rr.Count())
+		rj.Safe <- struct{}{}
+		rj.Done = true
 	}()
 
 }

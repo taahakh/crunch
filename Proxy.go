@@ -35,19 +35,21 @@ type RequestSend struct {
 type RequestCollection struct {
 	// Finish tells us when we want the webscrape to end by no matter what
 	// Finish nil will go on until everything is finished
-	Identifier int
+	Identifier int // Used for pool
 	RJ         *RequestJar
 	RS         []*RequestSend
 	Result     *RequestResult
-	Cancel     chan struct{}
-	Finish     string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
-	Done       bool   // State when this is done
+	Cancel     chan struct{} // cancel channel to end goroutines for this collection
+	Finish     string        // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
+	Done       bool          // State when this is done
+	Safe       chan struct{}
 }
 
 type RequestResult struct {
 	mu      sync.Mutex
 	res     []HTMLDocument
 	counter int
+	Alive   string
 }
 
 type GroupRequest struct {

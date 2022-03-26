@@ -13,6 +13,7 @@ type Pool struct {
 // Setting an identifier for our pool
 func (p *Pool) SetName(name string) {
 	p.name = name
+	p.collections = make(map[string]*RequestCollection, 0)
 }
 
 // Add collection to the map
@@ -60,7 +61,10 @@ func (p *Pool) Cancel(id string) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
+		// fmt.Println("Cancelling....")
 		val.Cancel <- struct{}{}
+		<-val.Safe
+		// fmt.Println("should be safe now")
 	}
 }
 
@@ -76,6 +80,10 @@ func (p *Pool) PopIfCompleted(id string) *RequestResult {
 	}
 
 	return rr
+}
+
+func (p *Pool) Run(id string, n int) {
+	go ScrapeSession(p.collections[id], n)
 }
 
 // ------------------------------------------------------------------------
