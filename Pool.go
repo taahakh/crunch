@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 )
 
@@ -13,7 +14,7 @@ type Pool struct {
 	collections map[string]*RequestCollection
 	end         chan string   // Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
 	finished    []string      // Stores all finished collections
-	close       chan struct{} // Signal to close the pool
+	close       chan struct{} // Signal to close the Garbage collector and the pool. Closing pool will come later
 }
 
 // Setting an identifier for our pool
@@ -32,6 +33,7 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
 		rc.Notify = &p.end
+		// rc.Extend = make(chan *RequestSend)
 		p.collections[col] = rc
 	} else {
 		log.Println("This collection ID already exists")
@@ -140,12 +142,6 @@ func (p *Pool) Run(id, method string, n int) {
 // Garbage collector for the pool
 func (p *Pool) captureCompleted() {
 	p.end = make(chan string, 1)
-	// for x := range p.end {
-	// 	p.mu.Lock()
-	// 	p.finished = append(p.finished, x)
-	// 	p.mu.Unlock()
-	// }
-
 	for {
 		select {
 		case x := <-p.end:
@@ -157,6 +153,13 @@ func (p *Pool) captureCompleted() {
 			fmt.Println("Im meant to close GCGCGGCGCCGG")
 			return
 		}
+	}
+}
+
+func (p *Pool) Extend(id string, req *http.Request) {
+	for val, ok := p.collections[id]; ok; {
+		val.RJ.Links = append(val.RJ.Links, req)
+		// val.Extend <- req
 	}
 }
 

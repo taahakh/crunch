@@ -51,8 +51,9 @@ type RequestCollection struct {
 	RS     []*RequestSend
 	Result *RequestResult
 	Cancel chan struct{} // cancel channel to end goroutines for this collection
-	Finish string        // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
-	Done   bool          // State when this is done. This is also POOL usage. DEPRECIATED SOON?
+	// Extend chan *RequestSend // Used for retries and extending the collection
+	Finish string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
+	Done   bool   // State when this is done. This is also POOL usage. DEPRECIATED SOON?
 }
 
 // Stores the results that have been successful

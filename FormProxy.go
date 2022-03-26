@@ -70,6 +70,7 @@ loop:
 				}
 				jobs <- item
 			}
+			break
 		case <-closeChannel:
 			break loop
 		default:
