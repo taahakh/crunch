@@ -1,19 +1,23 @@
 package speed
 
 import (
+	"fmt"
+	"log"
 	"sync"
 )
 
 type Pool struct {
 	mu          sync.RWMutex
-	name        string
+	name        string // Pool Name
 	collections map[string]*RequestCollection
+	end         chan string
 }
 
 // Setting an identifier for our pool
 func (p *Pool) SetName(name string) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
+	go p.captureCompleted()
 }
 
 // Add collection to the map
@@ -21,7 +25,10 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
+		rc.Identity = col
 		p.collections[col] = rc
+	} else {
+		log.Println("This collection ID already exists")
 	}
 }
 
@@ -32,7 +39,8 @@ func (p *Pool) Remove(col string) {
 	delete(p.collections, col)
 }
 
-func (p *Pool) safeRemove(id string) {
+// Unsafe removal. Should be used when collection is safe to remove
+func (p *Pool) rem(id string) {
 	delete(p.collections, id)
 }
 
@@ -50,7 +58,7 @@ func (p *Pool) Refresh() {
 // Cancelling does cancel the requests. This WILL and NEEDS to be handled as well
 // For now it cancels the workers and any remaining requests are handled and send through
 
-// Cancelling all collections. This doesn't end the pool
+// Cancelling all collections. This doesn't end the pool. This method is NOT safe
 func (p *Pool) CancelAll() {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -59,7 +67,7 @@ func (p *Pool) CancelAll() {
 	}
 }
 
-// Cancelling a single collection
+// Cancelling a single collection. This is a safe method and makes retrieving results safe as well
 func (p *Pool) Cancel(id string) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -67,6 +75,7 @@ func (p *Pool) Cancel(id string) {
 		val.Cancel <- struct{}{}
 		// Blocking call
 		<-val.Safe
+		fmt.Println("After blocking call")
 	}
 }
 
@@ -78,7 +87,7 @@ func (p *Pool) PopIfCompleted(id string) *RequestResult {
 	if val, ok := p.collections[id]; ok {
 		if val.Done {
 			rr = val.Result
-			p.safeRemove(id)
+			p.rem(id)
 			return rr
 		}
 	}
@@ -86,8 +95,30 @@ func (p *Pool) PopIfCompleted(id string) *RequestResult {
 	return rr
 }
 
-func (p *Pool) Run(id string, n int) {
-	go ScrapeSession(p.collections[id], n)
+// See how many Collections are running
+func (p *Pool) NumOfRunning() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	counter := 0
+	for _, x := range p.collections {
+		if x.Done {
+			counter++
+		}
+	}
+	return counter
+}
+
+// Run scrape
+func (p *Pool) Run(id, method string, n int) {
+	switch method {
+	case "scrapesession":
+		go ScrapeSession(p.collections[id], n)
+		break
+	}
+}
+
+func (p *Pool) captureCompleted() {
+
 }
 
 // ------------------------------------------------------------------------
