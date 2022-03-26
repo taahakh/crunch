@@ -11,8 +11,9 @@ type Pool struct {
 	mu          sync.RWMutex
 	name        string // Pool Name
 	collections map[string]*RequestCollection
-	end         chan string
-	finished    []string
+	end         chan string   // Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
+	finished    []string      // Stores all finished collections
+	close       chan struct{} // Signal to close the pool
 }
 
 // Setting an identifier for our pool
@@ -20,6 +21,7 @@ func (p *Pool) SetName(name string) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
 	p.finished = make([]string, 0)
+	p.close = make(chan struct{})
 	go p.captureCompleted()
 }
 
@@ -138,11 +140,28 @@ func (p *Pool) Run(id, method string, n int) {
 // Garbage collector for the pool
 func (p *Pool) captureCompleted() {
 	p.end = make(chan string, 1)
-	for x := range p.end {
-		p.mu.Lock()
-		p.finished = append(p.finished, x)
-		p.mu.Unlock()
+	// for x := range p.end {
+	// 	p.mu.Lock()
+	// 	p.finished = append(p.finished, x)
+	// 	p.mu.Unlock()
+	// }
+
+	for {
+		select {
+		case x := <-p.end:
+			p.mu.Lock()
+			p.finished = append(p.finished, x)
+			p.mu.Unlock()
+			break
+		case <-p.close:
+			fmt.Println("Im meant to close GCGCGGCGCCGG")
+			return
+		}
 	}
+}
+
+func (p *Pool) CloseGC() {
+	p.close <- struct{}{}
 }
 
 // ------------------------------------------------------------------------

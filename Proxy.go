@@ -37,20 +37,28 @@ type RequestCollection struct {
 	// Finish nil will go on until everything is finished
 
 	/* ---------- POOL Usage -------------- */
-	Identity string        // Pool usage
-	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true
-	Notify   *chan string  // Telling the pool which collections have stopped running. Sends the identity of this collection back to the pool
+	// Interaction with the pool allows safe cancellations and retrieval of collections when needed
+
+	Identity string        // Pool usage - Provides identity
+	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true. DEPRECIATED SOON?
+	Notify   *chan string  // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
+
 	/* ---------- METHOD usage ------------ */
+	// All the information needed to send requests as well as all client information linked to the collection
+	// RequestJar needs to be MUTEXED
+
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
 	Cancel chan struct{} // cancel channel to end goroutines for this collection
 	Finish string        // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
-	Done   bool          // State when this is done
+	Done   bool          // State when this is done. This is also POOL usage. DEPRECIATED SOON?
 }
 
 // Stores the results that have been successful
 type RequestResult struct {
+	// All successful requests and handled HTML's are stored here
+	// Counter tracks the number of successful results
 	mu      sync.Mutex
 	res     []HTMLDocument
 	counter int
