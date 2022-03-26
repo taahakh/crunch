@@ -29,7 +29,6 @@ func ScrapeSession(rj *RequestCollection, n int) {
 	var rr RequestResult
 
 	rj.Result = &rr
-	rr.Alive = "I SEE THIS AFTERWARDS"
 
 	rj.Cancel = make(chan struct{}, n+1)
 	jobs := make(chan *RequestSend, n+1)
@@ -85,9 +84,8 @@ loop:
 		wg.Wait()
 		fmt.Println("Done waiting?")
 		close(closeChannel)
-		fmt.Println(rr.Count())
-		rj.Safe <- struct{}{}
 		rj.Done = true
+		rj.Safe <- struct{}{}
 	}()
 
 }

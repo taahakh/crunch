@@ -47,6 +47,9 @@ func (p *Pool) Refresh() {
 	}
 }
 
+// Cancelling does cancel the requests. This WILL and NEEDS to be handled as well
+// For now it cancels the workers and any remaining requests are handled and send through
+
 // Cancelling all collections. This doesn't end the pool
 func (p *Pool) CancelAll() {
 	p.mu.RLock()
@@ -61,10 +64,9 @@ func (p *Pool) Cancel(id string) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
-		// fmt.Println("Cancelling....")
 		val.Cancel <- struct{}{}
+		// Blocking call
 		<-val.Safe
-		// fmt.Println("should be safe now")
 	}
 }
 
@@ -74,9 +76,11 @@ func (p *Pool) PopIfCompleted(id string) *RequestResult {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
-		rr = val.Result
-		p.safeRemove(id)
-		return rr
+		if val.Done {
+			rr = val.Result
+			p.safeRemove(id)
+			return rr
+		}
 	}
 
 	return rr
