@@ -136,9 +136,6 @@ func (p *Pool) Run(id, method string, n int) {
 	case "scrapesession":
 		go ScrapeSession(p.collections[id], n)
 		break
-	case "complete":
-		go CompleteSession(p.collections[id])
-		break
 	}
 }
 
@@ -155,18 +152,6 @@ func (p *Pool) captureCompleted() {
 		case <-p.close:
 			fmt.Println("Im meant to close GCGCGGCGCCGG")
 			return
-		}
-	}
-}
-
-// Ends all request. Doesn't allow graceful finish
-func (p *Pool) ForceCancelAll(id string) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if val, ok := p.collections[id]; ok {
-		for _, x := range val.RS {
-			c := *x.Cancel
-			c()
 		}
 	}
 }

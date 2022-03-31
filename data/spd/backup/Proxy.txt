@@ -1,7 +1,6 @@
 package speed
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -30,7 +29,6 @@ type RequestSend struct {
 	// Retries <= 0  - tries unless finished
 	Client  *http.Client
 	Request *http.Request
-	Cancel  *context.CancelFunc
 	Retries int
 }
 
@@ -357,38 +355,6 @@ func CreateLinkRequest(links []*url.URL) []*http.Request {
 		requests = append(requests, req)
 	}
 	return requests
-}
-
-func CreateLinkRequestContext(links []*url.URL) []*RequestSend {
-	rs := make([]*RequestSend, 0, len(links))
-	for _, x := range links {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		req, err := http.NewRequestWithContext(ctx, "GET", x.String(), nil)
-		if err != nil {
-			log.Println("CreateLinkRequestContext: Failed")
-		}
-		rs = append(rs, &RequestSend{
-			Request: req,
-			Cancel:  &cancel,
-		})
-	}
-
-	return rs
-}
-
-func CreateProxyClientContext(proxies []*url.URL) []*http.Client {
-	clients := make([]*http.Client, 0, len(proxies))
-
-	for i := 0; i < len(proxies); i++ {
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxies[i]),
-		}
-		client := &http.Client{
-			Transport: transport,
-		}
-		clients = append(clients, client)
-	}
-	return clients
 }
 
 func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client {

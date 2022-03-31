@@ -110,22 +110,14 @@ func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, closeChannel ch
 func CompleteSession(rj *RequestCollection) {
 
 	var wg sync.WaitGroup
-	retry := make(chan *RequestSend) // Requests for those that need a retry or they have finsihed retrying
-	result := rj.Result              // Scrape results
-	// closeChannel := rj.Safe          // Pool telling us
-
+	retry := make(chan *RequestSend)
+	result := rj.Result
 	cDone := 0
 	cClient := 0
 
 	for _, x := range rj.RS {
-		wg.Add(1)
 		go HandleRequest(x, retry, result, &wg)
 	}
-
-	go func() {
-		wg.Wait()
-		close(retry)
-	}()
 
 	for {
 		select {
@@ -140,10 +132,8 @@ func CompleteSession(rj *RequestCollection) {
 				}
 				go HandleRequest(item, retry, result, &wg)
 			}
-			// case
 		}
 	}
-
 }
 
 func changeClient(rs *RequestSend, client []*http.Client, c int) *RequestSend {
@@ -151,7 +141,7 @@ func changeClient(rs *RequestSend, client []*http.Client, c int) *RequestSend {
 	return rs
 }
 
-func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
+func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) struct{} {
 	defer wg.Done()
 
 	client := req.Client
@@ -162,8 +152,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 		log.Println("ProxyConnection: Client Failed! [POOL]")
 		req.Decrement()
 		retry <- req
-		// return struct{}{}
-		return
+		return struct{}{}
 	}
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
@@ -171,16 +160,14 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	data, err := HTMLDocUTF8(resp)
 	if err != nil {
 		log.Println("Couldn't read body")
-		// return struct{}{}
-		return
+		return struct{}{}
 	}
 
 	rr.add(data)
 	req.Retries = 0
 	retry <- req
 
-	// return struct{}{}
-	return
+	return struct{}{}
 }
 
 // Clients are the proxies and engine
