@@ -161,6 +161,7 @@ func (p *Pool) captureCompleted() {
 
 // Ends all request. Doesn't allow graceful finish
 func (p *Pool) ForceCancelAll(id string) {
+	fmt.Println("Cancelling")
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {

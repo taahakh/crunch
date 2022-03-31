@@ -359,24 +359,30 @@ func CreateLinkRequest(links []*url.URL) []*http.Request {
 	return requests
 }
 
-func CreateLinkRequestContext(links []*url.URL) []*RequestSend {
+func CreateLinkRequestContext(links []*url.URL, retries int) ([]*http.Request, []*RequestSend) {
 	rs := make([]*RequestSend, 0, len(links))
+	r := make([]*http.Request, 0, len(links))
+
 	for _, x := range links {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		// ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+		ctx, cancel := context.WithCancel(context.Background())
 		req, err := http.NewRequestWithContext(ctx, "GET", x.String(), nil)
 		if err != nil {
 			log.Println("CreateLinkRequestContext: Failed")
 		}
+
+		r = append(r, req)
 		rs = append(rs, &RequestSend{
 			Request: req,
 			Cancel:  &cancel,
+			Retries: retries,
 		})
 	}
 
-	return rs
+	return r, rs
 }
 
-func CreateProxyClientContext(proxies []*url.URL) []*http.Client {
+func CreateProxyClientContext(proxies []*url.URL, timeout time.Duration) []*http.Client {
 	clients := make([]*http.Client, 0, len(proxies))
 
 	for i := 0; i < len(proxies); i++ {
@@ -385,6 +391,7 @@ func CreateProxyClientContext(proxies []*url.URL) []*http.Client {
 		}
 		client := &http.Client{
 			Transport: transport,
+			Timeout:   timeout,
 		}
 		clients = append(clients, client)
 	}
@@ -447,6 +454,39 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	}
 
 	return req
+}
+
+func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time.Duration) *RequestCollection {
+	req := ConvertToURL(urls)
+	cli := ConvertToURL(proxy)
+
+	r, rs := CreateLinkRequestContext(req, retries)
+	c := CreateProxyClientContext(cli, timeout)
+
+	rs = AddClientsToRS(rs, c)
+
+	rj := &RequestJar{
+		Clients: c,
+		Links:   r,
+	}
+
+	return &RequestCollection{
+		RJ: rj,
+		RS: rs,
+	}
+}
+
+func AddClientsToRS(rs []*RequestSend, urls []*http.Client) []*RequestSend {
+	c := 0
+	for _, x := range rs {
+		x.Client = urls[c]
+		c++
+		if c == len(urls) {
+			c = 0
+		}
+	}
+
+	return rs
 }
 
 func SimpleSetup(proxy []string, urls []string, timeout time.Duration, retries int) *RequestCollection {
