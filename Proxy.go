@@ -527,3 +527,8 @@ func CreateSOCKS5Client(ip string) *http.Client {
 
 	return client
 }
+
+func (r *RequestCollection) SignalFinish() {
+	fmt.Println(r.Identity)
+	*r.Notify <- r.Identity
+}

@@ -23,6 +23,7 @@ func (p *Pool) SetName(name string) {
 	p.collections = make(map[string]*RequestCollection, 0)
 	p.finished = make([]string, 0)
 	p.close = make(chan struct{})
+	p.end = make(chan string)
 	go p.captureCompleted()
 }
 
@@ -33,6 +34,7 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
 		rc.Notify = &p.end
+		rc.Safe = make(chan struct{})
 		// rc.Extend = make(chan *RequestSend)
 		p.collections[col] = rc
 	} else {
@@ -130,6 +132,13 @@ func (p *Pool) Completed() int {
 	return len(p.finished)
 }
 
+// Returns list for the collections that have finished
+func (p *Pool) GetFinished() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.finished
+}
+
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
 	switch method {
@@ -144,7 +153,6 @@ func (p *Pool) Run(id, method string, n int) {
 
 // Garbage collector for the pool
 func (p *Pool) captureCompleted() {
-	p.end = make(chan string, 1)
 	for {
 		select {
 		case x := <-p.end:
@@ -161,10 +169,11 @@ func (p *Pool) captureCompleted() {
 
 // Ends all request. Doesn't allow graceful finish
 func (p *Pool) ForceCancelAll(id string) {
-	fmt.Println("Cancelling")
+	// fmt.Println("Cancelling")
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
+		val.Safe <- struct{}{}
 		for _, x := range val.RS {
 			c := *x.Cancel
 			c()

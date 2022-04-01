@@ -91,14 +91,13 @@ loop:
 		*rj.Notify <- rj.Identity
 		return
 	}()
-
 }
 
 func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, closeChannel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
 	for {
 		select {
 		case item := <-jobs:
-			wg.Add(1)
+			// wg.Add(1)
 			HandleRequest(item, retry, rr, wg)
 		case <-closeChannel:
 			return
@@ -110,15 +109,17 @@ func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, closeChannel ch
 
 func CompleteSession(rj *RequestCollection) {
 
+	defer rj.SignalFinish()
+
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
 	result := rj.Result                  // Scrape results
+	safe := rj.Safe
 
 	cDone := 0
 	cClient := 0
 
 	for _, x := range rj.RS {
-		// wg.Add(1)
 		go HandleRequest(x, retry, result, &wg)
 	}
 
@@ -138,6 +139,8 @@ loop:
 				go HandleRequest(item, retry, result, &wg)
 			}
 			break
+		case <-safe:
+			break loop
 		default:
 			if cDone == len(rj.RJ.Links) {
 				break loop
@@ -145,10 +148,8 @@ loop:
 		}
 	}
 
-	// go func() {
-	// 	wg.Wait()
-	// 	close(retry)
-	// }()
+	// This closes goroutine if it is run as a goroutine
+	return
 
 }
 
@@ -157,7 +158,7 @@ loop:
 // 	return rs
 // }
 
-func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) struct{} {
+func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
 
@@ -169,25 +170,26 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 		log.Println("ProxyConnection: Client Failed! [POOL]")
 		req.Decrement()
 		retry <- req
-		return struct{}{}
-		// return
+		// return struct{}{}
+		return
 	}
+
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
 	data, err := HTMLDocUTF8(resp)
 	if err != nil {
 		log.Println("Couldn't read body")
-		return struct{}{}
-		// return
+		// return struct{}{}
+		return
 	}
 
 	rr.add(data)
 	req.Retries = 0
 	retry <- req
 
-	return struct{}{}
-	// return
+	// return struct{}{}
+	return
 }
 
 // Clients are the proxies and engine
