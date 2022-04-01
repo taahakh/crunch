@@ -192,4 +192,13 @@ func (p *Pool) CloseGC() {
 	p.close <- struct{}{}
 }
 
+func (p *Pool) GracefulClose() {
+
+}
+
+func (p *Pool) Close() {
+
+	p.CloseGC()
+}
+
 // ------------------------------------------------------------------------

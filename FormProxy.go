@@ -107,6 +107,9 @@ func SSWorker(jobs <-chan *RequestSend, retry chan *RequestSend, closeChannel ch
 
 // ---------------------------------------------------------------------------------
 
+// Handles retries, individual request timeouts and cancellations,
+// all request cancellations
+
 func CompleteSession(rj *RequestCollection) {
 
 	defer rj.SignalFinish()
