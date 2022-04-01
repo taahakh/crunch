@@ -12,9 +12,16 @@ type Pool struct {
 	mu          sync.RWMutex
 	name        string // Pool Name
 	collections map[string]*RequestCollection
-	end         chan string   // Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
-	finished    []string      // Stores all finished collections
-	close       chan struct{} // Signal to close the Garbage collector and the pool. Closing pool will come later
+	/* Pool Usage */
+
+	// Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
+	end chan string
+
+	// Stores all finished collections
+	finished []string
+
+	// Signal to close the Garbage collector and the pool. Closing pool will come later
+	close chan struct{}
 }
 
 // Setting an identifier for our pool
@@ -197,7 +204,6 @@ func (p *Pool) GracefulClose() {
 }
 
 func (p *Pool) Close() {
-
 	p.CloseGC()
 }
 

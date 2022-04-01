@@ -7,7 +7,95 @@ import (
 	"time"
 )
 
+// Global sleep, timeouts, batched workers
+// func ScrapeSession(rj *RequestCollection, n int) {
+// 	var t time.Duration
+// 	var setSleep bool
+
+// 	if rj.Finish == UntilComplete {
+// 		setSleep = false
+// 	} else {
+// 		var err error
+
+// 		t, err = time.ParseDuration(rj.Finish)
+// 		if err != nil {
+// 			log.Println(err)
+// 			return
+// 		}
+
+// 		setSleep = true
+// 	}
+
+// 	var wg sync.WaitGroup
+// 	var rr RequestResult
+
+// 	rj.Result = &rr
+
+// 	rj.Cancel = make(chan struct{}, n+1)  // Pool/Collection to close this collection
+// 	jobs := make(chan *RequestSend, n+1)  // Send jobs to complete
+// 	retry := make(chan *RequestSend, n+1) // Requests that need to be handled again but with a different client
+// 	rj.Safe = make(chan struct{}, 1)      // Tells Pool that it is safe to access and all requests have been handled
+// 	closeChannel := rj.Cancel
+
+// 	for i := 0; i < n; i++ {
+// 		go SSWorker(jobs, retry, closeChannel, &rr, &wg)
+// 	}
+
+// 	for _, x := range rj.RS {
+// 		jobs <- x
+// 	}
+
+// 	cClients := 0
+// 	cDone := 0
+
+// 	go func() {
+// 		if setSleep {
+// 			time.Sleep(t)
+// 			fmt.Println("Finished Sleeping")
+// 			closeChannel <- struct{}{}
+// 		}
+// 		return
+// 	}()
+
+// loop:
+// 	for {
+// 		select {
+// 		case item := <-retry:
+// 			if item.Retries == 0 {
+// 				cDone++
+// 				continue
+// 			} else {
+// 				item.Client = rj.RJ.Clients[cClients]
+// 				cClients++
+// 				if cClients == len(rj.RJ.Clients) {
+// 					cClients = 0
+// 				}
+// 				jobs <- item
+// 			}
+// 			break
+// 		case <-closeChannel:
+// 			break loop
+// 		default:
+// 			if cDone == len(rj.RJ.Links) {
+// 				closeChannel <- struct{}{}
+// 				break loop
+// 			}
+// 		}
+// 	}
+
+// 	go func() {
+// 		wg.Wait()
+// 		fmt.Println("Done waiting?")
+// 		close(closeChannel)
+// 		rj.Done = true
+// 		rj.Safe <- struct{}{}
+// 		*rj.Notify <- rj.Identity
+// 		return
+// 	}()
+// }
+
 func ScrapeSession(rj *RequestCollection, n int) {
+	// Setting global timeout or not
 	var t time.Duration
 	var setSleep bool
 
@@ -118,6 +206,7 @@ func CompleteSession(rj *RequestCollection) {
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
 	result := rj.Result                  // Scrape results
 	safe := rj.Safe
+	// cancel := rj.Cancel
 
 	cDone := 0
 	cClient := 0
@@ -129,6 +218,7 @@ func CompleteSession(rj *RequestCollection) {
 loop:
 	for {
 		select {
+		// Handling retries
 		case item := <-retry:
 			if item.Retries == 0 {
 				cDone++
@@ -143,6 +233,7 @@ loop:
 			}
 			break
 		case <-safe:
+			// case <-cancel:
 			break loop
 		default:
 			if cDone == len(rj.RJ.Links) {
@@ -153,7 +244,6 @@ loop:
 
 	// This closes goroutine if it is run as a goroutine
 	return
-
 }
 
 // func changeClient(rs *RequestSend, client []*http.Client, c int) *RequestSend {
@@ -173,7 +263,6 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 		log.Println("ProxyConnection: Client Failed! [POOL]")
 		req.Decrement()
 		retry <- req
-		// return struct{}{}
 		return
 	}
 
@@ -183,7 +272,6 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	data, err := HTMLDocUTF8(resp)
 	if err != nil {
 		log.Println("Couldn't read body")
-		// return struct{}{}
 		return
 	}
 
@@ -191,7 +279,6 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	req.Retries = 0
 	retry <- req
 
-	// return struct{}{}
 	return
 }
 
