@@ -1,4 +1,4 @@
-package speed
+package req
 
 type PoolManager struct {
 	Pools []Pool

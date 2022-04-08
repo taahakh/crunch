@@ -1,4 +1,4 @@
-package speed
+package traverse
 
 import (
 	"bytes"
