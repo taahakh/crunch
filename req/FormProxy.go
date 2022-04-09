@@ -30,7 +30,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	defer rj.SignalFinish()
 
 	var dur time.Duration
-	var handle func(req []*RequestSend)
+	// var handle func(req []*RequestSend)
 
 	if gap != "" {
 		t, err := time.ParseDuration(gap)
@@ -47,6 +47,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	// End the goroutine where we do requests.
 	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
+	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 	end := make(chan struct{})
 
 	counter := 0
@@ -55,7 +56,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	q := Queue{}
 	q.Make(rj.RS)
 
-	handle = func(req []*RequestSend) {
+	go func(req []*RequestSend) {
 		// We go thorugh the list first without doing the retries
 		for {
 
@@ -68,16 +69,13 @@ func Batch(rj *RequestCollection, size int, gap string) {
 					if item == nil {
 						continue
 					}
-
 					go HandleRequest(item, retry, result, &wg)
 				}
 
 				time.Sleep(dur)
 			}
 		}
-	}
-
-	go handle(rj.RS)
+	}(rj.RS)
 
 	go func() {
 		for {

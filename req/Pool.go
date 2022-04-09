@@ -194,6 +194,10 @@ func (p *Pool) ForceCancelAll(id string) {
 	}
 }
 
+func (p *Pool) SendForceCancel(id string) {
+
+}
+
 func (p *Pool) Extend(id string, req *http.Request) {
 	for val, ok := p.collections[id]; ok; {
 		val.RJ.Links = append(val.RJ.Links, req)
