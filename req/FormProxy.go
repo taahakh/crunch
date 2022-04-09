@@ -3,6 +3,7 @@ package req
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 	"time"
 
@@ -25,9 +26,11 @@ func Flood(rj *RequestCollection, request int) {}
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then each batch is done sequentially
 func Batch(rj *RequestCollection, size int, gap string) {
+	/* SUCCESSFUL REQUESTS CRAASH FIND PROBLEM */
 	defer rj.SignalFinish()
 
 	var dur time.Duration
+	var handle func(req []*RequestSend)
 
 	if gap != "" {
 		t, err := time.ParseDuration(gap)
@@ -38,52 +41,72 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	}
 
 	var wg sync.WaitGroup
-	retry := make(chan *RequestSend, 10)
+	retry := make(chan *RequestSend, size)
 	result := rj.Result // Scrape results
 	safe := rj.Safe
+	// End the goroutine where we do requests.
+	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
+	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
+	end := make(chan struct{})
 
 	counter := 0
+	cDone := len(rj.RJ.Links)
 
-	go func() {
-		// loop:
+	q := Queue{}
+	q.Make(rj.RS)
+
+	handle = func(req []*RequestSend) {
+		// We go thorugh the list first without doing the retries
 		for {
 
-			for i := 0; i < size; i++ {
-				go HandleRequest(rj.RS[counter], retry, result, &wg)
-			}
-
-			counter++
-
-			if counter == len(rj.RJ.Clients) {
-				break
-			}
-
-			time.Sleep(dur)
-			// end goroutine
-			//
-
 			select {
-			case <-safe:
-				// break loop
+			case <-end:
 				return
-			}
+			default:
+				for i := 0; i < size; i++ {
+					item := q.Pop()
+					if item == nil {
+						continue
+					}
 
-		}
+					go HandleRequest(item, retry, result, &wg)
+				}
 
-		return
-	}()
-
-	//  handle retries here
-
-loop:
-	for {
-		select {
-		case item := <-retry:
-			if item.Retries == 0 {
-				break loop
+				time.Sleep(dur)
 			}
 		}
 	}
+
+	go handle(rj.RS)
+
+	go func() {
+		for {
+
+			time.Sleep(time.Millisecond * 1000)
+
+			select {
+			case item := <-retry:
+				if item.Retries == 0 {
+					cDone--
+				} else {
+					counter = changeClient(item.Client, rj.RJ.Clients, counter)
+					q.Add(item)
+				}
+				break
+			case <-safe:
+				end <- struct{}{}
+				return
+			default:
+				if cDone == 0 {
+					end <- struct{}{}
+					return
+				}
+			}
+		}
+	}()
+
+	return
+
 }
 
 func CompleteSession(rj *RequestCollection) {
@@ -165,6 +188,10 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	return
 }
 
-func changeClient() {
-
+func changeClient(client *http.Client, list []*http.Client, counter int) int {
+	client = list[counter]
+	if counter == len(list) {
+		counter = 0
+	}
+	return counter
 }

@@ -155,6 +155,9 @@ func (p *Pool) Run(id, method string, n int) {
 	case "complete":
 		go CompleteSession(p.collections[id])
 		break
+	case "batch":
+		go Batch(p.collections[id], 2, "3s")
+		break
 	}
 }
 
@@ -182,6 +185,9 @@ func (p *Pool) ForceCancelAll(id string) {
 	if val, ok := p.collections[id]; ok {
 		val.Safe <- struct{}{}
 		for _, x := range val.RS {
+			if x == nil {
+				continue
+			}
 			c := *x.Cancel
 			c()
 		}
