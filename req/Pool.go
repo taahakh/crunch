@@ -194,6 +194,8 @@ func (p *Pool) ForceCancelAll(id string) {
 	}
 }
 
+// Instead of the pool cancelling, the collection item itself is cancelled when it is safe
+// Batch method should use this instead as it safely ends all items in the queue
 func (p *Pool) SendForceCancel(id string) {
 
 }
