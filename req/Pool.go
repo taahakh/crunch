@@ -149,9 +149,9 @@ func (p *Pool) GetFinished() []string {
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
 	switch method {
-	case "flood":
-		go Flood(p.collections[id], n)
-		break
+	// case "flood":
+	// 	go Flood(p.collections[id], n)
+	// 	break
 	case "complete":
 		go CompleteSession(p.collections[id])
 		break
