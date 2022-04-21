@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"sync"
 )
 
@@ -17,7 +16,7 @@ type Pool struct {
 	// Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
 	end chan string
 
-	// Stores all finished collections
+	// Stores named finished collections
 	finished []string
 
 	// Signal to close the Garbage collector and the pool. Closing pool will come later
@@ -31,7 +30,7 @@ func (p *Pool) SetName(name string) {
 	p.finished = make([]string, 0)
 	p.close = make(chan struct{})
 	p.end = make(chan string)
-	go p.captureCompleted()
+	go p.collector()
 }
 
 // Add collection to the map
@@ -41,7 +40,9 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
 		rc.Notify = &p.end
-		rc.Safe = make(chan struct{})
+		// rc.Safe = make(chan struct{})
+		rc.Cancel = make(chan struct{})
+		rc.Result = &RequestResult{}
 		// rc.Extend = make(chan *RequestSend)
 		p.collections[col] = rc
 	} else {
@@ -60,10 +61,11 @@ func (p *Pool) Remove(col string) error {
 		}
 	}
 
-	return errors.New("Cannot remove until this is collection is finished")
+	return errors.New("Cannot remove until this is collection is finished or cancelled")
 }
 
 // Unsafe removal. Should be used when collection is safe to remove
+// The collection will run even when removed
 func (p *Pool) rem(id string) {
 	delete(p.collections, id)
 }
@@ -79,38 +81,32 @@ func (p *Pool) Refresh() {
 	}
 }
 
-// Cancelling does cancel the requests. This WILL and NEEDS to be handled as well
-// For now it cancels the workers and any remaining requests are handled and send through
-
-// Cancelling all collections. This doesn't end the pool. This method is NOT safe
-func (p *Pool) CancelAll() {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	for x := range p.collections {
-		p.collections[x].Cancel <- struct{}{}
-	}
-}
-
-// Cancelling a single collection. This is a safe method and makes retrieving results safe as well
-func (p *Pool) Cancel(id string) {
+// Ends all request. Doesn't allow graceful finish
+func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
 		val.Cancel <- struct{}{}
-		// Blocking call
-		<-val.Safe
-		fmt.Println("After blocking call")
+		for _, x := range val.RS {
+			if x == nil {
+				continue
+			}
+			c := *x.Request.Cancel
+			c()
+		}
+		return val.Result, nil
 	}
+
+	return nil, errors.New("Collection doesn't exist")
 }
 
 //  Removes successfully when the requestcollection has been given done status
 func (p *Pool) PopIfCompleted(id string) (*RequestResult, error) {
-	var rr *RequestResult
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
 		if val.Done {
-			rr = val.Result
+			rr := val.Result
 			p.rem(id)
 			return rr, nil
 		}
@@ -149,9 +145,6 @@ func (p *Pool) GetFinished() []string {
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
 	switch method {
-	// case "flood":
-	// 	go Flood(p.collections[id], n)
-	// 	break
 	case "complete":
 		go CompleteSession(p.collections[id])
 		break
@@ -162,7 +155,7 @@ func (p *Pool) Run(id, method string, n int) {
 }
 
 // Garbage collector for the pool
-func (p *Pool) captureCompleted() {
+func (p *Pool) collector() {
 	for {
 		select {
 		case x := <-p.end:
@@ -177,35 +170,18 @@ func (p *Pool) captureCompleted() {
 	}
 }
 
-// Ends all request. Doesn't allow graceful finish
-func (p *Pool) ForceCancelAll(id string) {
-	// fmt.Println("Cancelling")
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if val, ok := p.collections[id]; ok {
-		val.Safe <- struct{}{}
-		for _, x := range val.RS {
-			if x == nil {
-				continue
-			}
-			c := *x.Cancel
-			c()
-		}
-	}
-}
+// // Instead of the pool cancelling, the collection item itself is cancelled when it is safe
+// // Batch method should use this instead as it safely ends all items in the queue
+// func (p *Pool) SendForceCancel(id string) {
 
-// Instead of the pool cancelling, the collection item itself is cancelled when it is safe
-// Batch method should use this instead as it safely ends all items in the queue
-func (p *Pool) SendForceCancel(id string) {
+// }
 
-}
-
-func (p *Pool) Extend(id string, req *http.Request) {
-	for val, ok := p.collections[id]; ok; {
-		val.RJ.Links = append(val.RJ.Links, req)
-		// val.Extend <- req
-	}
-}
+// func (p *Pool) Extend(id string, req *RequestItem) {
+// 	for val, ok := p.collections[id]; ok; {
+// 		val.RJ.Links = append(val.RJ.Links, req)
+// 		// val.Extend <- req
+// 	}
+// }
 
 func (p *Pool) CloseGC() {
 	p.close <- struct{}{}
@@ -216,6 +192,9 @@ func (p *Pool) GracefulClose() {
 }
 
 func (p *Pool) Close() {
+	for _, x := range p.collections {
+		p.CancelCollection(x.Identity)
+	}
 	p.CloseGC()
 }
 

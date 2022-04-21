@@ -17,20 +17,13 @@ import (
 
 // request - number of request to push per batch
 // gap - how long to wait until sending next batch
-// func Flood(rj *RequestCollection, request, workers int, gap time.Duration) {
-
-// }
-
-func Flood(rj *RequestCollection, request int) {}
 
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then each batch is done sequentially
 func Batch(rj *RequestCollection, size int, gap string) {
-	/* SUCCESSFUL REQUESTS CRAASH FIND PROBLEM */
 	defer rj.SignalFinish()
 
 	var dur time.Duration
-	// var handle func(req []*RequestSend)
 
 	if gap != "" {
 		t, err := time.ParseDuration(gap)
@@ -42,8 +35,11 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, size)
-	result := rj.Result // Scrape results
-	safe := rj.Safe
+	// Scrape results
+	result := rj.Result
+	// safe := rj.Safe
+	// The pool telling the collection to end all requests
+	cancel := rj.Cancel
 	// End the goroutine where we do requests.
 	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
@@ -91,7 +87,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 					q.Add(item)
 				}
 				break
-			case <-safe:
+			case <-cancel:
 				end <- struct{}{}
 				return
 			default:
@@ -104,7 +100,6 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	}()
 
 	return
-
 }
 
 func CompleteSession(rj *RequestCollection) {
@@ -114,8 +109,8 @@ func CompleteSession(rj *RequestCollection) {
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
 	result := rj.Result                  // Scrape results
-	safe := rj.Safe
-	// cancel := rj.Cancel
+	// safe := rj.Safe
+	cancel := rj.Cancel
 
 	cDone := 0
 	cClient := 0
@@ -141,7 +136,7 @@ loop:
 				go HandleRequest(item, retry, result, &wg)
 			}
 			break
-		case <-safe:
+		case <-cancel:
 			// case <-cancel:
 			break loop
 		default:
@@ -160,7 +155,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	defer wg.Done()
 
 	client := req.Client
-	request := req.Request
+	request := req.Request.Request
 
 	resp, err := client.Do(request)
 	if err != nil {

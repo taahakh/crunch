@@ -2,6 +2,7 @@ package req
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,17 +10,18 @@ import (
 
 	// "net/proxy"
 	"net/url"
-	"runtime"
-	"sync"
 	"time"
 
-	"github.com/taahakh/speed/traverse"
 	"golang.org/x/net/proxy"
 )
 
 const (
 	UntilComplete = ""
 )
+
+type IP interface {
+	List() []string
+}
 
 func GenodeRead(csv [][]string, protocol string) []string {
 	var ipList []string
@@ -71,239 +73,8 @@ func ConnProxNoDefer(link, proxy string, timeout time.Duration) (*http.Response,
 	return res, err
 }
 
-func oneToMultiIP(link *url.URL, proxy string, timeout time.Duration, ch chan *http.Response, done chan struct{}, wg *sync.WaitGroup) struct{} {
-
-	defer wg.Done()
-
-	p, err := url.Parse(proxy)
-	if err != nil {
-		log.Println("Proxy parsing not working")
-	}
-
-	transport := &http.Transport{
-		Proxy: http.ProxyURL(p),
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   timeout,
-	}
-
-	req, err := http.NewRequest("GET", link.String(), nil)
-	if err != nil {
-		log.Println("New request failed")
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		log.Println("Client do not working")
-		done <- struct{}{}
-		return struct{}{}
-	}
-
-	defer res.Body.Close()
-
-	ch <- res
-	done <- struct{}{}
-
-	return struct{}{}
-}
-
-func LinktoMultiIP(dest, timeout string, ips []string, nWorkers int) {
-	t, err := time.ParseDuration(timeout)
-	if err != nil {
-		log.Println("no parse")
-	}
-
-	p, err := url.Parse(dest)
-	if err != nil {
-		log.Println("Destination parsing failed")
-	}
-
-	var wg sync.WaitGroup
-	ch := make(chan *http.Response, 1) // output
-	in := make(chan string, 10)        // input
-	done := make(chan struct{}, 10)    // finish
-	end := make(chan struct{}, 10)     // finish
-	var data *http.Response
-
-	for i := 0; i < nWorkers; i++ {
-		go worker(in, ch, done, end, p, t, &wg)
-	}
-
-	counter := 1
-	goFinish := 1
-	in <- ips[counter-1]
-
-loop:
-	for {
-		if goFinish == nWorkers {
-			accept := 0
-			for {
-				select {
-				case data = <-ch:
-					end <- struct{}{}
-					break loop
-				case <-done:
-					accept++
-				}
-				if goFinish == accept {
-					goFinish = 0
-					break
-				}
-			}
-		}
-
-		if counter == len(ips) {
-			break
-		}
-		counter++
-		goFinish++
-		in <- ips[counter-1]
-
-	}
-
-	go func() {
-		wg.Wait()
-		fmt.Println("did i close")
-		close(ch)
-		close(end)
-	}()
-
-	fmt.Println(data)
-
-	fmt.Println("Have i closed")
-	fmt.Println(runtime.NumGoroutine())
-}
-
-func worker(jobs <-chan string, results chan *http.Response, done chan struct{}, end chan struct{}, link *url.URL, timeout time.Duration, wg *sync.WaitGroup) {
-	for {
-		select {
-		case <-end:
-			return
-		case x := <-jobs:
-			wg.Add(1)
-			oneToMultiIP(link, x, timeout, results, done, wg)
-		}
-	}
-}
-
-func ProxyConnection(req *SingleRequest, ch chan *SingleRequest, done chan struct{}, rr *RequestResult, wg *sync.WaitGroup) struct{} {
-	defer wg.Done()
-
-	client := req.proxyClient
-	request := req.link
-
-	resp, err := client.Do(request)
-	if err != nil {
-		log.Println("ProxyConnection: Client failed")
-		req.decrement()
-		ch <- req
-		return struct{}{}
-	}
-
-	fmt.Println("------------------------------PASSSEDDDDDDDDDDD-------------------------------")
-
-	defer resp.Body.Close()
-
-	data, err := traverse.HTMLDocUTF8(resp)
-	if err != nil {
-		log.Println("Couldn't read body")
-		return struct{}{}
-	}
-
-	rr.add(data)
-	done <- struct{}{}
-
-	return struct{}{}
-}
-
-func groupWorker(req <-chan *SingleRequest, out chan *SingleRequest, done chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
-	for x := range req {
-		wg.Add(1)
-		ProxyConnection(x, out, done, rr, wg)
-	}
-}
-
-func GroupScrape(gr GroupRequest, nWorkers, retries int) *RequestResult {
-	proxies := ConvertToURL(gr.Ips)
-	links := ConvertToURL(gr.Links)
-	pc := CreateProxyClient(proxies, gr.Timeout)
-	lr := CreateLinkRequest(links)
-
-	var wg sync.WaitGroup
-	var rr RequestResult
-	req := make(chan *SingleRequest, 10)
-	out := make(chan *SingleRequest, 10)
-	done := make(chan struct{}, 5)
-
-	for i := 0; i < nWorkers; i++ {
-		go groupWorker(req, out, done, &rr, &wg)
-	}
-
-	counter := 0
-	for _, x := range lr {
-		req <- &SingleRequest{
-			proxyClient: pc[counter],
-			link:        x,
-			retries:     retries,
-		}
-		counter++
-		if counter == len(pc) {
-			counter = 0
-		}
-	}
-
-	doneCounter := 0
-loop:
-	for {
-		select {
-		case item := <-out:
-			if item.retries == 0 {
-				done <- struct{}{}
-				continue
-			} else {
-				if counter == len(pc) {
-					counter = 0
-				}
-				item.proxyClient = pc[counter]
-				req <- item
-				counter++
-			}
-		case <-done:
-			doneCounter++
-			if doneCounter == len(lr) {
-				break loop
-			}
-		}
-	}
-
-	go func() {
-		wg.Wait()
-		close(out)
-		close(req)
-		fmt.Println("Closing")
-		return
-	}()
-
-	return &rr
-}
-
-func CreateLinkRequest(links []*url.URL) []*http.Request {
-	requests := make([]*http.Request, 0, len(links))
-	for _, x := range links {
-		req, err := http.NewRequest("GET", x.String(), nil)
-		if err != nil {
-			log.Println("CreateLinkRequest: Cannot create new request")
-		}
-		requests = append(requests, req)
-	}
-	return requests
-}
-
-func CreateLinkRequestContext(links []*url.URL, retries int) ([]*http.Request, []*RequestSend) {
-	rs := make([]*RequestSend, 0, len(links))
-	r := make([]*http.Request, 0, len(links))
+func CreateLinkRequestContext(links []*url.URL, retries int) []*RequestItem {
+	r := make([]*RequestItem, 0, len(links))
 
 	for _, x := range links {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -312,31 +83,13 @@ func CreateLinkRequestContext(links []*url.URL, retries int) ([]*http.Request, [
 			log.Println("CreateLinkRequestContext: Failed")
 		}
 
-		r = append(r, req)
-		rs = append(rs, &RequestSend{
+		r = append(r, &RequestItem{
 			Request: req,
 			Cancel:  &cancel,
-			Retries: retries,
 		})
 	}
 
-	return r, rs
-}
-
-func CreateProxyClientContext(proxies []*url.URL, timeout time.Duration) []*http.Client {
-	clients := make([]*http.Client, 0, len(proxies))
-
-	for i := 0; i < len(proxies); i++ {
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxies[i]),
-		}
-		client := &http.Client{
-			Transport: transport,
-			Timeout:   timeout,
-		}
-		clients = append(clients, client)
-	}
-	return clients
+	return r
 }
 
 func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client {
@@ -380,14 +133,17 @@ func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time
 	req := ConvertToURL(urls)
 	cli := ConvertToURL(proxy)
 
-	r, rs := CreateLinkRequestContext(req, retries)
-	c := CreateProxyClientContext(cli, timeout)
-
-	rs = AddClientsToRS(rs, c)
+	ri := CreateLinkRequestContext(req, retries)
+	c := CreateProxyClient(cli, timeout)
 
 	rj := &RequestJar{
 		Clients: c,
-		Links:   r,
+		Links:   ri,
+	}
+
+	rs, err := CreateRequestSend(c, ri)
+	if err != nil {
+		panic("NICE")
 	}
 
 	return &RequestCollection{
@@ -396,40 +152,23 @@ func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time
 	}
 }
 
-func AddClientsToRS(rs []*RequestSend, urls []*http.Client) []*RequestSend {
-	c := 0
-	for _, x := range rs {
-		x.Client = urls[c]
-		c++
-		if c == len(urls) {
-			c = 0
+func CreateRequestSend(rc []*http.Client, ri []*RequestItem) ([]*RequestSend, error) {
+	counter := 0
+	if len(rc) == 0 || len(ri) == 0 {
+		return nil, errors.New("Either list is of size 0")
+	}
+	rs := make([]*RequestSend, 0, len(ri))
+	for _, x := range ri {
+		if counter == len(rc) {
+			counter = 0
 		}
+		rs = append(rs, &RequestSend{
+			Request: x,
+			Client:  rc[counter],
+		})
 	}
 
-	return rs
-}
-
-func SimpleSetup(proxy []string, urls []string, timeout time.Duration, retries int) *RequestCollection {
-	var req []*http.Request // links
-	var cli []*http.Client  // proxies
-
-	reqUrl := ConvertToURL(urls)
-	cliUrl := ConvertToURL(proxy)
-
-	req = CreateLinkRequest(reqUrl)
-	cli = CreateProxyClient(cliUrl, timeout)
-
-	rj := &RequestJar{
-		Clients: cli,
-		Links:   req,
-	}
-
-	rs := rj.CreateHandle(retries)
-
-	return &RequestCollection{
-		RJ: rj,
-		RS: rs,
-	}
+	return rs, nil
 }
 
 func CreateSOCKS5Client(ip string) *http.Client {

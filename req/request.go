@@ -5,22 +5,51 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/taahakh/speed/traverse"
 )
 
+// type RJ interface {
+// 	Clients() []*http.Client
+// 	Requests() []*http.Request
+// }
+
+// type RS interface {
+// 	Client() *http.Client
+// 	Request() *http.Request
+// 	Cancel() *context.CancelFunc
+// 	Retries() int
+// }
+
+type RequestItem struct {
+	Request *http.Request
+	Cancel  *context.CancelFunc
+}
+
+// // Groups of ips and links
+// type RequestJar struct {
+// 	Clients []*http.Client
+// 	Links   []*http.Request // this is intially in the form of url.URL but is then converted to string
+// }
+
 // Groups of ips and links
 type RequestJar struct {
 	Clients []*http.Client
-	Links   []*http.Request // this is intially in the form of url.URL but is then converted to string
+	Links   []*RequestItem // this is intially in the form of url.URL but is then converted to string
 }
+
+// type RequestSend struct {
+// 	// Retries <= 0  - tries unless finished
+// 	Client  *http.Client
+// 	Request *http.Request
+// 	Cancel  *context.CancelFunc
+// 	Retries int
+// }
 
 type RequestSend struct {
 	// Retries <= 0  - tries unless finished
 	Client  *http.Client
-	Request *http.Request
-	Cancel  *context.CancelFunc
+	Request *RequestItem
 	Retries int
 }
 
@@ -33,6 +62,7 @@ type RequestCollection struct {
 
 	Identity string        // Provides identity
 	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true. DEPRECIATED SOON?
+	Cancel   chan struct{} // cancel channel to end goroutines/requests for this collection
 	Notify   *chan string  // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
 
 	/* ---------- METHOD usage ------------ */
@@ -42,10 +72,9 @@ type RequestCollection struct {
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
-	Cancel chan struct{} // cancel channel to end goroutines/requests for this collection
 	// Extend chan *RequestSend // Used for retries and extending the collection
-	Finish string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
-	Done   bool   // State when this is done. This is also POOL usage. DEPRECIATED SOON?
+	// Finish string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
+	Done bool // State when this is done. This is also POOL usage. DEPRECIATED SOON?
 }
 
 // Stores the results that have been successful
@@ -55,18 +84,6 @@ type RequestResult struct {
 	mu      sync.Mutex
 	res     []traverse.HTMLDocument
 	counter int
-}
-
-type GroupRequest struct {
-	Ips     []string
-	Links   []string
-	Timeout time.Duration
-}
-
-type SingleRequest struct {
-	proxyClient *http.Client
-	link        *http.Request
-	retries     int
 }
 
 // Clients are the proxies and engine
@@ -111,11 +128,12 @@ func (c *RequestResult) Count() int {
 	return c.counter
 }
 
-func (rt *SingleRequest) decrement() {
-	rt.retries -= 1
-}
-
 func (r *RequestCollection) SignalFinish() {
 	fmt.Println(r.Identity)
 	*r.Notify <- r.Identity
+}
+
+func (ri *RequestItem) CancelRequest() {
+	cancel := *ri.Cancel
+	cancel()
 }
