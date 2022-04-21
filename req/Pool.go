@@ -8,16 +8,21 @@ import (
 )
 
 type Pool struct {
-	mu          sync.RWMutex
-	name        string // Pool Name
+	mu   sync.RWMutex
+	name string // Pool Name
+
+	// Active or soon to be active collections
 	collections map[string]*RequestCollection
+
 	/* Pool Usage */
 
 	// Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
 	end chan string
+	// end chan *RequestCollection
 
-	// Stores named finished collections
+	// Stores finished collections
 	finished []string
+	// finished []*RequestCollection
 
 	// Signal to close the Garbage collector and the pool. Closing pool will come later
 	close chan struct{}
@@ -28,8 +33,10 @@ func (p *Pool) SetName(name string) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
 	p.finished = make([]string, 0)
+	// p.finished = make([]*RequestCollection, 0)
 	p.close = make(chan struct{})
 	p.end = make(chan string)
+	// p.end = make(chan *RequestCollection)
 	go p.collector()
 }
 
@@ -83,9 +90,17 @@ func (p *Pool) Refresh() {
 
 // Ends all request. Doesn't allow graceful finish
 func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
+	fmt.Println("PLRASSEEEE")
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
+	fmt.Println("PLRASSEEEE2222222222222")
 	if val, ok := p.collections[id]; ok {
+		fmt.Println("PLRASSEEEE333333333333333333")
+		if val.Done {
+			return nil, nil
+		}
 		val.Cancel <- struct{}{}
 		for _, x := range val.RS {
 			if x == nil {
@@ -142,6 +157,24 @@ func (p *Pool) GetFinished() []string {
 	return p.finished
 }
 
+// // Returns list for the collections that have finished
+// func (p *Pool) GetFinished() []string {
+// 	p.mu.Lock()
+// 	defer p.mu.Unlock()
+// 	finished := make([]string, 0, len(p.finished))
+// 	for _, x := range p.finished {
+// 		finished = append(finished, x.Identity)
+// 	}
+// 	return finished
+// }
+
+// // Returns list for the collections that have finished
+// func (p *Pool) GetFinishedCollections() []*RequestCollection {
+// 	p.mu.Lock()
+// 	defer p.mu.Unlock()
+// 	return p.finished
+// }
+
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
 	switch method {
@@ -161,6 +194,8 @@ func (p *Pool) collector() {
 		case x := <-p.end:
 			p.mu.Lock()
 			p.finished = append(p.finished, x)
+			// p.finished = append(p.finished, x)
+			// delete(p.collections, x.Identity)
 			p.mu.Unlock()
 			break
 		case <-p.close:
@@ -183,7 +218,7 @@ func (p *Pool) collector() {
 // 	}
 // }
 
-func (p *Pool) CloseGC() {
+func (p *Pool) closeGC() {
 	p.close <- struct{}{}
 }
 
@@ -192,10 +227,17 @@ func (p *Pool) GracefulClose() {
 }
 
 func (p *Pool) Close() {
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
+	fmt.Println("Length of colecltion: ", len(p.collections))
 	for _, x := range p.collections {
+		fmt.Println(x)
+		fmt.Println("HEREEEEE")
 		p.CancelCollection(x.Identity)
 	}
-	p.CloseGC()
+	fmt.Print("got passed the cancellations")
+	p.closeGC()
+	return
 }
 
 // ------------------------------------------------------------------------

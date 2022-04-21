@@ -64,6 +64,7 @@ type RequestCollection struct {
 	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true. DEPRECIATED SOON?
 	Cancel   chan struct{} // cancel channel to end goroutines/requests for this collection
 	Notify   *chan string  // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
+	// Notify *chan *RequestCollection // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
 
 	/* ---------- METHOD usage ------------ */
 	// All the information needed to send requests as well as all client information linked to the collection
@@ -130,7 +131,10 @@ func (c *RequestResult) Count() int {
 
 func (r *RequestCollection) SignalFinish() {
 	fmt.Println(r.Identity)
+	r.Done = true
 	*r.Notify <- r.Identity
+	// *r.Notify <- r
+
 }
 
 func (ri *RequestItem) CancelRequest() {
