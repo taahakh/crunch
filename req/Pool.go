@@ -148,28 +148,10 @@ func (p *Pool) Completed() int {
 
 // Returns list for the collections that have finished
 func (p *Pool) GetFinished() []string {
-	// p.mu.Lock()
-	// defer p.mu.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.finished
 }
-
-// // Returns list for the collections that have finished
-// func (p *Pool) GetFinished() []string {
-// 	p.mu.Lock()
-// 	defer p.mu.Unlock()
-// 	finished := make([]string, 0, len(p.finished))
-// 	for _, x := range p.finished {
-// 		finished = append(finished, x.Identity)
-// 	}
-// 	return finished
-// }
-
-// // Returns list for the collections that have finished
-// func (p *Pool) GetFinishedCollections() []*RequestCollection {
-// 	p.mu.Lock()
-// 	defer p.mu.Unlock()
-// 	return p.finished
-// }
 
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {

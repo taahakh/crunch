@@ -21,30 +21,31 @@ import (
 // 	Retries() int
 // }
 
+// type Result interface {
+// 	Mutex() sync.Mutex
+// 	Counter() int
+
+// }
+
+// Stores the results that have been successful
+type RequestResult struct {
+	// All successful requests and handled HTML's are stored here
+	// Counter tracks the number of successful results
+	mu      sync.Mutex
+	res     []traverse.HTMLDocument
+	counter int
+}
+
 type RequestItem struct {
 	Request *http.Request
 	Cancel  *context.CancelFunc
 }
-
-// // Groups of ips and links
-// type RequestJar struct {
-// 	Clients []*http.Client
-// 	Links   []*http.Request // this is intially in the form of url.URL but is then converted to string
-// }
 
 // Groups of ips and links
 type RequestJar struct {
 	Clients []*http.Client
 	Links   []*RequestItem // this is intially in the form of url.URL but is then converted to string
 }
-
-// type RequestSend struct {
-// 	// Retries <= 0  - tries unless finished
-// 	Client  *http.Client
-// 	Request *http.Request
-// 	Cancel  *context.CancelFunc
-// 	Retries int
-// }
 
 type RequestSend struct {
 	// Retries <= 0  - tries unless finished
@@ -60,11 +61,19 @@ type RequestCollection struct {
 	/* ---------- POOL Usage -------------- */
 	// Interaction with the pool allows safe cancellations and retrieval of collections when needed
 
-	Identity string        // Provides identity
-	Safe     chan struct{} // Telling the pool when it is safe to exit cancel for further use. Done is set to true. DEPRECIATED SOON?
-	Cancel   chan struct{} // cancel channel to end goroutines/requests for this collection
-	Notify   *chan string  // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
-	// Notify *chan *RequestCollection // Telling the pool that this collection has stopped running. Sends the identity of this collection back to the pool
+	// Provides identity for collection and allows the pool to identify
+	Identity string
+
+	// Pool sending cancel struct to end goroutines/requests for this collection
+	Cancel chan struct{}
+
+	// Telling the pool that this collection has finally stopped running.
+	// Sends the identity of this collection back to the pool
+	Notify *chan string
+
+	// State of collection if it is has stopped processing
+	// This tells the pool that it should not attempt to cancel the collection when it already has been cancelled/finished
+	Done bool
 
 	/* ---------- METHOD usage ------------ */
 	// All the information needed to send requests as well as all client information linked to the collection
@@ -73,18 +82,6 @@ type RequestCollection struct {
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
-	// Extend chan *RequestSend // Used for retries and extending the collection
-	// Finish string // how long it should take before the rc should end. Should follow time.Duration rules to get desired result
-	Done bool // State when this is done. This is also POOL usage. DEPRECIATED SOON?
-}
-
-// Stores the results that have been successful
-type RequestResult struct {
-	// All successful requests and handled HTML's are stored here
-	// Counter tracks the number of successful results
-	mu      sync.Mutex
-	res     []traverse.HTMLDocument
-	counter int
 }
 
 // Clients are the proxies and engine
