@@ -130,8 +130,7 @@ func (c *RequestResult) Count() int {
 }
 
 func (r *RequestCollection) SignalFinish() {
-	fmt.Println(r.Identity)
-	r.Done = true
+	fmt.Println("Signaled finish: ", r.Identity)
 	*r.Notify <- r.Identity
 	// *r.Notify <- r
 

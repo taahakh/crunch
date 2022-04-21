@@ -90,17 +90,13 @@ func (p *Pool) Refresh() {
 
 // Ends all request. Doesn't allow graceful finish
 func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
-	fmt.Println("PLRASSEEEE")
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	// p.mu.Lock()
-	// defer p.mu.Unlock()
-	fmt.Println("PLRASSEEEE2222222222222")
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if val, ok := p.collections[id]; ok {
-		fmt.Println("PLRASSEEEE333333333333333333")
 		if val.Done {
 			return nil, nil
 		}
+		val.Done = true
 		val.Cancel <- struct{}{}
 		for _, x := range val.RS {
 			if x == nil {
@@ -152,8 +148,8 @@ func (p *Pool) Completed() int {
 
 // Returns list for the collections that have finished
 func (p *Pool) GetFinished() []string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
 	return p.finished
 }
 
@@ -205,19 +201,6 @@ func (p *Pool) collector() {
 	}
 }
 
-// // Instead of the pool cancelling, the collection item itself is cancelled when it is safe
-// // Batch method should use this instead as it safely ends all items in the queue
-// func (p *Pool) SendForceCancel(id string) {
-
-// }
-
-// func (p *Pool) Extend(id string, req *RequestItem) {
-// 	for val, ok := p.collections[id]; ok; {
-// 		val.RJ.Links = append(val.RJ.Links, req)
-// 		// val.Extend <- req
-// 	}
-// }
-
 func (p *Pool) closeGC() {
 	p.close <- struct{}{}
 }
@@ -227,16 +210,11 @@ func (p *Pool) GracefulClose() {
 }
 
 func (p *Pool) Close() {
-	// p.mu.Lock()
-	// defer p.mu.Unlock()
-	fmt.Println("Length of colecltion: ", len(p.collections))
 	for _, x := range p.collections {
-		fmt.Println(x)
-		fmt.Println("HEREEEEE")
 		p.CancelCollection(x.Identity)
 	}
-	fmt.Print("got passed the cancellations")
-	p.closeGC()
+	fmt.Println("sdfjfijdskfjdjk")
+	// p.closeGC()
 	return
 }
 
