@@ -94,7 +94,7 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 	defer p.mu.Unlock()
 	if val, ok := p.collections[id]; ok {
 		if val.Done {
-			return nil, nil
+			return val.Result, nil
 		}
 		val.Done = true
 		val.Cancel <- struct{}{}
@@ -172,6 +172,7 @@ func (p *Pool) collector() {
 		case x := <-p.end:
 			p.mu.Lock()
 			p.finished = append(p.finished, x)
+
 			// p.finished = append(p.finished, x)
 			// delete(p.collections, x.Identity)
 			p.mu.Unlock()
