@@ -186,3 +186,56 @@ func CreateSOCKS5Client(ip string) *http.Client {
 
 	return client
 }
+
+func ApplyHeaders(req []*http.Request, headers []*http.Header) ([]*http.Request, error) {
+	counter := 0
+	length := len(headers)
+	if length == 0 {
+		return req, errors.New("Headers arr is empty")
+	}
+	for _, x := range req {
+		if counter == length {
+			counter = 0
+		}
+		x.Header = *headers[counter]
+	}
+
+	return req, nil
+}
+
+func ApplyUserAgents(headers []*http.Header, agents []string) ([]*http.Header, error) {
+	counter := 0
+	length := len(agents)
+	if length == 0 {
+		return nil, errors.New("There are no agents")
+	}
+	for _, x := range headers {
+		if counter == length {
+			counter = 0
+		}
+		x.Set("User-Agent", agents[counter])
+	}
+
+	return headers, nil
+}
+
+func CreateHeaders(agents []string) ([]*http.Header, error) {
+	headers := make([]*http.Header, 0, len(agents))
+
+	if len(agents) == 0 {
+		return nil, errors.New("Empty agents")
+	}
+
+	for _, x := range agents {
+		h := CreateHeader(x)
+		headers = append(headers, &h)
+	}
+
+	return headers, nil
+}
+
+func CreateHeader(agent string) http.Header {
+	return http.Header{
+		"User-Agent": []string{agent},
+	}
+}

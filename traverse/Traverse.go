@@ -44,6 +44,17 @@ func HTMLDoc(r io.Reader) HTMLDocument {
 	return HTMLDocument{Node: Node{Node: doc}, IntialSearch: false, Complete: true}
 }
 
+func HTMLDocRun(r io.Reader, m func(doc *HTMLDocument) bool) bool {
+	doc, err := html.Parse(r)
+	if err != nil {
+		fmt.Println("something")
+	}
+
+	document := HTMLDocument{Node: Node{Node: doc}, IntialSearch: false, Complete: true}
+
+	return m(&document)
+}
+
 func HTMLDocBytes(b *[]byte) HTMLDocument {
 	doc, err := StringEasyParse(b)
 	if err != nil {
@@ -63,6 +74,23 @@ func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
 	if err != nil {
 		log.Println("Failed ioutil")
 	}
+	return HTMLDocBytes(&bytes), err
+}
+
+func HTMLDocUTF8Run(r *http.Response, m func(doc *HTMLDocument) bool) (HTMLDocument, error) {
+	defer r.Body.Close()
+	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println("Failed utf8set")
+	}
+	bytes, err := ioutil.ReadAll(utf8set)
+	if err != nil {
+		log.Println("Failed ioutil")
+	}
+
+	item := HTMLDocBytes(&bytes)
+	m(&item)
+
 	return HTMLDocBytes(&bytes), err
 }
 

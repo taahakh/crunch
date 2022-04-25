@@ -51,6 +51,7 @@ type RequestSend struct {
 	// Retries <= 0  - tries unless finished
 	Client  *http.Client
 	Request *RequestItem
+	Caught  bool
 	Retries int
 }
 
@@ -107,6 +108,22 @@ func (rj *RequestJar) CreateHandle(rt int) []*RequestSend {
 
 func (rs *RequestSend) Decrement() {
 	rs.Retries--
+}
+
+func (rs *RequestSend) AddHeader(key, value string) {
+	rs.Request.Request.Header.Add(key, value)
+}
+
+func (rs *RequestSend) SetHost(host string) {
+	rs.Request.Request.Host = host
+}
+
+func (rs *RequestSend) SetHeaders(headers map[string][]string) {
+	rs.Request.Request.Header = headers
+}
+
+func (rs *RequestSend) SetHeadersStruct(header *http.Header) {
+	rs.Request.Request.Header = *header
 }
 
 func (c *RequestResult) add(b traverse.HTMLDocument) {

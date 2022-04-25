@@ -80,7 +80,10 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 			select {
 			case item := <-retry:
-				if item.Retries == 0 {
+				if item.Caught == true {
+					changeUserAgent(item.Request.Request)
+					q.Add(item)
+				} else if item.Retries == 0 {
 					cDone--
 				} else {
 					counter = changeClient(item.Client, rj.RJ.Clients, counter)
@@ -124,7 +127,10 @@ loop:
 		select {
 		// Handling retries
 		case item := <-retry:
-			if item.Retries == 0 {
+			if item.Caught == true {
+				changeUserAgent(item.Request.Request)
+				go HandleRequest(item, retry, result, &wg)
+			} else if item.Retries == 0 {
 				cDone++
 				continue
 			} else {
@@ -187,4 +193,8 @@ func changeClient(client *http.Client, list []*http.Client, counter int) int {
 		counter = 0
 	}
 	return counter
+}
+
+func changeUserAgent(req *http.Request) {
+
 }
