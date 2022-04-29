@@ -45,13 +45,17 @@ type RequestItem struct {
 type RequestJar struct {
 	Clients []*http.Client
 	Links   []*RequestItem // this is intially in the form of url.URL but is then converted to string
+	// For mainly user-agents and also headers
+	Headers []*http.Header
 }
 
 type RequestSend struct {
 	// Retries <= 0  - tries unless finished
 	Client  *http.Client
 	Request *RequestItem
-	Caught  bool
+	// Change user-agents
+	Caught bool
+	// Failed ip request - how many more rotations to do
 	Retries int
 }
 
@@ -146,8 +150,6 @@ func (c *RequestResult) Count() int {
 func (r *RequestCollection) SignalFinish() {
 	fmt.Println("Signaled finish: ", r.Identity)
 	*r.Notify <- r.Identity
-	// *r.Notify <- r
-
 }
 
 func (ri *RequestItem) CancelRequest() {

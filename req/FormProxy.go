@@ -10,6 +10,10 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
+const (
+	SleepTime = 1000
+)
+
 // ---------------------------------------------------------------------------------
 
 // Handles retries, individual request timeouts and cancellations,
@@ -25,12 +29,18 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	var dur time.Duration
 
+	// check if time duration is empty
 	if gap != "" {
 		t, err := time.ParseDuration(gap)
 		if err != nil {
 			return
 		}
 		dur = t
+	}
+
+	// if time duration == 0
+	if dur == 0 {
+
 	}
 
 	var wg sync.WaitGroup
@@ -48,11 +58,12 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	counter := 0
 	cDone := len(rj.RJ.Links)
+	cHeader := 0
 
 	q := Queue{}
 	q.Make(rj.RS)
 
-	go func(req []*RequestSend) {
+	go func() {
 		// We go thorugh the list first without doing the retries
 		for {
 
@@ -71,17 +82,17 @@ func Batch(rj *RequestCollection, size int, gap string) {
 				time.Sleep(dur)
 			}
 		}
-	}(rj.RS)
+	}()
 
 	go func() {
 		for {
 
-			time.Sleep(time.Millisecond * 1000)
+			time.Sleep(time.Millisecond * SleepTime)
 
 			select {
 			case item := <-retry:
 				if item.Caught == true {
-					changeUserAgent(item.Request.Request)
+					cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 					q.Add(item)
 				} else if item.Retries == 0 {
 					cDone--
@@ -117,6 +128,7 @@ func CompleteSession(rj *RequestCollection) {
 
 	cDone := 0
 	cClient := 0
+	cHeader := 0
 
 	for _, x := range rj.RS {
 		go HandleRequest(x, retry, result, &wg)
@@ -128,7 +140,7 @@ loop:
 		// Handling retries
 		case item := <-retry:
 			if item.Caught == true {
-				changeUserAgent(item.Request.Request)
+				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 				go HandleRequest(item, retry, result, &wg)
 			} else if item.Retries == 0 {
 				cDone++
@@ -195,6 +207,11 @@ func changeClient(client *http.Client, list []*http.Client, counter int) int {
 	return counter
 }
 
-func changeUserAgent(req *http.Request) {
-
+func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
+	req.Header = *jar.Headers[count]
+	count++
+	if count == len(jar.Headers) {
+		return 0
+	}
+	return count
 }
