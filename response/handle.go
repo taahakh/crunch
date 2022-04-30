@@ -34,12 +34,13 @@ func startscraping(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	rj1 := req.SimpleContextSetup(
+	rj1 := req.SimpleSetup(
 		req.GenodeRead(csv, "http"),
 		[]string{
 			"https://httpbin.org",
 			"https://ruktaj.co.uk",
 		},
+		nil,
 		2,
 		t,
 	)

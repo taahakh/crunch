@@ -2,9 +2,9 @@ package req
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"sync"
+	"time"
 )
 
 type Pool struct {
@@ -172,13 +172,9 @@ func (p *Pool) collector() {
 		case x := <-p.end:
 			p.mu.Lock()
 			p.finished = append(p.finished, x)
-
-			// p.finished = append(p.finished, x)
-			// delete(p.collections, x.Identity)
 			p.mu.Unlock()
 			break
 		case <-p.close:
-			fmt.Println("Im meant to close GCGCGGCGCCGG")
 			return
 		}
 	}
@@ -196,8 +192,8 @@ func (p *Pool) Close() {
 	for _, x := range p.collections {
 		p.CancelCollection(x.Identity)
 	}
-	fmt.Println("sdfjfijdskfjdjk")
-	// p.closeGC()
+	time.Sleep(time.Millisecond * 500)
+	p.closeGC()
 	return
 }
 

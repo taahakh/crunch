@@ -77,22 +77,23 @@ func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
 	return HTMLDocBytes(&bytes), err
 }
 
-func HTMLDocUTF8Run(r *http.Response, m func(doc *HTMLDocument) bool) (HTMLDocument, error) {
-	defer r.Body.Close()
-	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
-	if err != nil {
-		log.Println("Failed utf8set")
-	}
-	bytes, err := ioutil.ReadAll(utf8set)
-	if err != nil {
-		log.Println("Failed ioutil")
-	}
+// if true, it means that the scrape was unsuccessful
+// if false, scrape successful
+// func HTMLDocUTF8Run(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
+// 	defer r.Body.Close()
+// 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+// 	if err != nil {
+// 		log.Println("Failed utf8set")
+// 	}
+// 	bytes, err := ioutil.ReadAll(utf8set)
+// 	if err != nil {
+// 		log.Println("Failed ioutil")
+// 	}
 
-	item := HTMLDocBytes(&bytes)
-	m(&item)
+// 	item := traverse.HTMLDocBytes(&bytes)
 
-	return HTMLDocBytes(&bytes), err
-}
+// 	return m(&item, res), err
+// }
 
 // ----------------------------------------------------------------------------------------------------------
 

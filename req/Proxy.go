@@ -129,12 +129,50 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	return req
 }
 
-func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time.Duration) *RequestCollection {
+// func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time.Duration) *RequestCollection {
+// 	req := ConvertToURL(urls)
+// 	cli := ConvertToURL(proxy)
+
+// 	ri := CreateLinkRequestContext(req, retries)
+// 	c := CreateProxyClient(cli, timeout)
+
+// 	rj := &RequestJar{
+// 		Clients: c,
+// 		Links:   ri,
+// 	}
+
+// 	rs, err := CreateRequestSend(c, ri)
+// 	if err != nil {
+// 		panic("NICE")
+// 	}
+
+// 	return &RequestCollection{
+// 		RJ: rj,
+// 		RS: rs,
+// 	}
+// }
+
+func SimpleSetup(proxy []string, urls []string, headers []*http.Header, retries int, timeout time.Duration) *RequestCollection {
+
+	var ri []*RequestItem
+
+	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
+		return nil
+	}
+
 	req := ConvertToURL(urls)
 	cli := ConvertToURL(proxy)
 
-	ri := CreateLinkRequestContext(req, retries)
+	ri = CreateLinkRequestContext(req, retries)
 	c := CreateProxyClient(cli, timeout)
+
+	if headers != nil {
+		req, err := ApplyHeadersRI(ri, headers)
+		if err != nil {
+			log.Println("Header error")
+		}
+		ri = req
+	}
 
 	rj := &RequestJar{
 		Clients: c,
@@ -185,6 +223,22 @@ func CreateSOCKS5Client(ip string) *http.Client {
 	}
 
 	return client
+}
+
+func ApplyHeadersRI(req []*RequestItem, headers []*http.Header) ([]*RequestItem, error) {
+	counter := 0
+	length := len(headers)
+	if length == 0 {
+		return req, errors.New("Headers arr is empty")
+	}
+	for _, x := range req {
+		if counter == length {
+			counter = 0
+		}
+		x.Request.Header = *headers[counter]
+	}
+
+	return req, nil
 }
 
 func ApplyHeaders(req []*http.Request, headers []*http.Header) ([]*http.Request, error) {

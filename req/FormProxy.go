@@ -2,12 +2,14 @@ package req
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/taahakh/speed/traverse"
+	"golang.org/x/net/html/charset"
 )
 
 const (
@@ -66,7 +68,6 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	go func() {
 		// We go thorugh the list first without doing the retries
 		for {
-
 			select {
 			case <-end:
 				return
@@ -214,4 +215,22 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 		return 0
 	}
 	return count
+}
+
+// if true, it means that the scrape was unsuccessful
+// if false, scrape successful
+func HTMLDocUTF8Run(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
+	defer r.Body.Close()
+	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+	if err != nil {
+		log.Println("Failed utf8set")
+	}
+	bytes, err := ioutil.ReadAll(utf8set)
+	if err != nil {
+		log.Println("Failed ioutil")
+	}
+
+	item := traverse.HTMLDocBytes(&bytes)
+
+	return m(&item, res), err
 }

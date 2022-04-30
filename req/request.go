@@ -9,24 +9,6 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
-// type RJ interface {
-// 	Clients() []*http.Client
-// 	Requests() []*http.Request
-// }
-
-// type RS interface {
-// 	Client() *http.Client
-// 	Request() *http.Request
-// 	Cancel() *context.CancelFunc
-// 	Retries() int
-// }
-
-// type Result interface {
-// 	Mutex() sync.Mutex
-// 	Counter() int
-
-// }
-
 // Stores the results that have been successful
 type RequestResult struct {
 	// All successful requests and handled HTML's are stored here
