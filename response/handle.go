@@ -34,7 +34,7 @@ func startscraping(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	rj1 := req.SimpleSetup(
+	rj1 := req.SimpleProxySetup(
 		req.GenodeRead(csv, "http"),
 		[]string{
 			"https://httpbin.org",
@@ -43,10 +43,11 @@ func startscraping(w http.ResponseWriter, r *http.Request) {
 		nil,
 		2,
 		t,
+		nil,
 	)
 
 	pool := req.Pool{}
-	pool.SetName("main")
+	pool.SetName("main", nil)
 	pool.Add("A", rj1)
 	pool.Run("A", "complete", 2)
 }

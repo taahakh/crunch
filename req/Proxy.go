@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/taahakh/speed/traverse"
 	"golang.org/x/net/proxy"
 )
 
@@ -129,30 +130,30 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	return req
 }
 
-// func SimpleContextSetup(proxy []string, urls []string, retries int, timeout time.Duration) *RequestCollection {
-// 	req := ConvertToURL(urls)
-// 	cli := ConvertToURL(proxy)
+func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+	rs := make([]*RequestSend, 0, len(urls))
+	req := ConvertToURL(urls)
 
-// 	ri := CreateLinkRequestContext(req, retries)
-// 	c := CreateProxyClient(cli, timeout)
+	ri := CreateLinkRequestContext(req, 0)
+	for _, x := range ri {
+		rs = append(rs, &RequestSend{
+			Request: x,
+			Method:  method,
+		})
+	}
 
-// 	rj := &RequestJar{
-// 		Clients: c,
-// 		Links:   ri,
-// 	}
+	return &RequestCollection{
+		RS: rs,
+	}
+}
 
-// 	rs, err := CreateRequestSend(c, ri)
-// 	if err != nil {
-// 		panic("NICE")
-// 	}
-
-// 	return &RequestCollection{
-// 		RJ: rj,
-// 		RS: rs,
-// 	}
-// }
-
-func SimpleSetup(proxy []string, urls []string, headers []*http.Header, retries int, timeout time.Duration) *RequestCollection {
+func SimpleProxySetup(
+	proxy []string,
+	urls []string,
+	headers []*http.Header,
+	retries int,
+	timeout time.Duration,
+	method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
 
 	var ri []*RequestItem
 
@@ -179,7 +180,7 @@ func SimpleSetup(proxy []string, urls []string, headers []*http.Header, retries 
 		Links:   ri,
 	}
 
-	rs, err := CreateRequestSend(c, ri)
+	rs, err := CreateRequestSend(c, ri, method)
 	if err != nil {
 		panic("NICE")
 	}
@@ -190,7 +191,7 @@ func SimpleSetup(proxy []string, urls []string, headers []*http.Header, retries 
 	}
 }
 
-func CreateRequestSend(rc []*http.Client, ri []*RequestItem) ([]*RequestSend, error) {
+func CreateRequestSend(rc []*http.Client, ri []*RequestItem, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
 	counter := 0
 	if len(rc) == 0 || len(ri) == 0 {
 		return nil, errors.New("Either list is of size 0")
@@ -203,6 +204,7 @@ func CreateRequestSend(rc []*http.Client, ri []*RequestItem) ([]*RequestSend, er
 		rs = append(rs, &RequestSend{
 			Request: x,
 			Client:  rc[counter],
+			Method:  method,
 		})
 	}
 

@@ -14,9 +14,18 @@ type RequestResult struct {
 	// All successful requests and handled HTML's are stored here
 	// Counter tracks the number of successful results
 	mu      sync.Mutex
-	res     []traverse.HTMLDocument
+	res     []*interface{}
 	counter int
 }
+
+// type RequestResult struct {
+// 	// All successful requests and handled HTML's are stored here
+// 	// Counter tracks the number of successful results
+// 	mu sync.Mutex
+// 	res     []traverse.HTMLDocument
+// 	// res     []*interface{}
+// 	counter int
+// }
 
 type RequestItem struct {
 	Request *http.Request
@@ -26,7 +35,8 @@ type RequestItem struct {
 // Groups of ips and links
 type RequestJar struct {
 	Clients []*http.Client
-	Links   []*RequestItem // this is intially in the form of url.URL but is then converted to string
+	Links   []*RequestItem
+
 	// For mainly user-agents and also headers
 	Headers []*http.Header
 }
@@ -35,10 +45,15 @@ type RequestSend struct {
 	// Retries <= 0  - tries unless finished
 	Client  *http.Client
 	Request *RequestItem
-	// Change user-agents
+
+	// Change user-agents if its has been detected non-human
 	Caught bool
+
 	// Failed ip request - how many more rotations to do
 	Retries int
+
+	// The method to use to scrape the webpage
+	Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
 }
 
 type RequestCollection struct {
@@ -57,6 +72,9 @@ type RequestCollection struct {
 	// Telling the pool that this collection has finally stopped running.
 	// Sends the identity of this collection back to the pool
 	Notify *chan string
+
+	// Used for cancelling collections. We need to know if the process has started or it will hang when trying to cancel
+	Start bool
 
 	// State of collection if it is has stopped processing
 	// This tells the pool that it should not attempt to cancel the collection when it already has been cancelled/finished
@@ -112,14 +130,27 @@ func (rs *RequestSend) SetHeadersStruct(header *http.Header) {
 	rs.Request.Request.Header = *header
 }
 
-func (c *RequestResult) add(b traverse.HTMLDocument) {
+// func (c *RequestResult) add(b traverse.HTMLDocument) {
+// 	c.mu.Lock()
+// 	defer c.mu.Unlock()
+// 	c.res = append(c.res, b)
+// 	c.counter++
+// }
+
+// func (c *RequestResult) Read() []traverse.HTMLDocument {
+// 	c.mu.Lock()
+// 	defer c.mu.Unlock()
+// 	return c.res
+// }
+
+func (c *RequestResult) Add(b interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.res = append(c.res, b)
+	c.res = append(c.res, &b)
 	c.counter++
 }
 
-func (c *RequestResult) Read() []traverse.HTMLDocument {
+func (c *RequestResult) Read() []*interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
@@ -131,6 +162,7 @@ func (c *RequestResult) Count() int {
 
 func (r *RequestCollection) SignalFinish() {
 	fmt.Println("Signaled finish: ", r.Identity)
+	r.Done = true
 	*r.Notify <- r.Identity
 }
 

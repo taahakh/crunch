@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	SleepTime = 1000
+	sleepTime = 1000
 )
 
 // ---------------------------------------------------------------------------------
@@ -22,10 +22,9 @@ const (
 // all request cancellations
 
 // request - number of request to push per batch
-// gap - how long to wait until sending next batch
 
 // size - how many requests per batch
-// gap - how long until to send next batch. if the time gap = 0, then each batch is done sequentially
+// gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
 func Batch(rj *RequestCollection, size int, gap string) {
 	defer rj.SignalFinish()
 
@@ -42,7 +41,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	// if time duration == 0
 	if dur == 0 {
-
+		return
 	}
 
 	var wg sync.WaitGroup
@@ -88,7 +87,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	go func() {
 		for {
 
-			time.Sleep(time.Millisecond * SleepTime)
+			time.Sleep(time.Millisecond * sleepTime)
 
 			select {
 			case item := <-retry:
@@ -156,7 +155,6 @@ loop:
 			}
 			break
 		case <-cancel:
-			// case <-cancel:
 			break loop
 		default:
 			if cDone == len(rj.RJ.Links) {
@@ -169,16 +167,71 @@ loop:
 	return
 }
 
+func Simple(rc *RequestCollection) {
+
+	defer rc.SignalFinish()
+
+	var wg sync.WaitGroup
+	// RETRY has NO functionality
+	// retry := make(chan *RequestSend, len(rc.RS))
+	retry := make(chan *RequestSend)
+	result := rc.Result
+	cancel := rc.Cancel
+	finish := make(chan struct{})
+
+	// cDone := len(rc.RS)
+
+	for _, x := range rc.RS {
+		go HandleRequest(x, retry, result, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		finish <- struct{}{}
+		return
+	}()
+
+loop:
+	for {
+		select {
+		case <-cancel:
+			break loop
+		case <-finish:
+			break loop
+		case <-retry:
+			break
+		}
+	}
+
+	return
+
+}
+
 func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
+
+	var resp *http.Response
+	var err error
+
 	wg.Add(1)
 	defer wg.Done()
 
 	client := req.Client
 	request := req.Request.Request
 
-	resp, err := client.Do(request)
+	if client != nil {
+		respX, errX := client.Do(request)
+		resp = respX
+		err = errX
+	} else {
+		cli := http.Client{}
+		respX, errX := cli.Do(request)
+		resp = respX
+		err = errX
+	}
+
 	if err != nil {
 		log.Println("ProxyConnection: Client Failed! [POOL]")
+		// resp.Body.Close()
 		req.Decrement()
 		retry <- req
 		return
@@ -187,18 +240,33 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
-	data, err := traverse.HTMLDocUTF8(resp)
+	// data, err := traverse.HTMLDocUTF8(resp)
+	data, err := RunScrape(resp, rr, req.Method)
 	if err != nil {
 		log.Println("Couldn't read body")
 		return
 	}
 
-	rr.add(data)
+	// we were requesting with no proxy so no new client was needed so we are finished here
+	if client == nil {
+		return
+	}
+
+	// if the request has gone successfull but the scrape has not i.e. website has detected it's being scraped and providing non-essential information
+	if !data {
+		req.Caught = true
+		retry <- req
+		return
+	}
+
+	// rr.add(data)
 	req.Retries = 0
 	retry <- req
 
 	return
 }
+
+// ----------------------------------------------------------
 
 func changeClient(client *http.Client, list []*http.Client, counter int) int {
 	client = list[counter]
@@ -219,15 +287,18 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 
 // if true, it means that the scrape was unsuccessful
 // if false, scrape successful
-func HTMLDocUTF8Run(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
+// it is up to the user to add their scraped data into RequestResult
+func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
 		log.Println("Failed utf8set")
+		return false, err
 	}
 	bytes, err := ioutil.ReadAll(utf8set)
 	if err != nil {
 		log.Println("Failed ioutil")
+		return false, err
 	}
 
 	item := traverse.HTMLDocBytes(&bytes)

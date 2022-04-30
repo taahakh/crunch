@@ -20,7 +20,7 @@ type Pool struct {
 	end chan string
 	// end chan *RequestCollection
 
-	// Stores finished collections
+	// Stores finished collections names
 	finished []string
 	// finished []*RequestCollection
 
@@ -29,7 +29,7 @@ type Pool struct {
 }
 
 // Setting an identifier for our pool
-func (p *Pool) SetName(name string) {
+func (p *Pool) SetName(name string, method func(rc *RequestCollection)) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
 	p.finished = make([]string, 0)
@@ -37,7 +37,7 @@ func (p *Pool) SetName(name string) {
 	p.close = make(chan struct{})
 	p.end = make(chan string)
 	// p.end = make(chan *RequestCollection)
-	go p.collector()
+	go p.collector(method)
 }
 
 // Add collection to the map
@@ -93,6 +93,11 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if val, ok := p.collections[id]; ok {
+		// collection started?
+		if !val.Start {
+			return nil, errors.New("This collection has not started")
+		}
+		// collection already completed?
 		if val.Done {
 			return val.Result, nil
 		}
@@ -116,13 +121,35 @@ func (p *Pool) PopIfCompleted(id string) (*RequestResult, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
-		if val.Done {
-			rr := val.Result
-			p.rem(id)
-			return rr, nil
-		}
+		rr, err := p.popCompleted(val, id)
+		return rr, err
 	}
 
+	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
+}
+
+func (p *Pool) popCompleted(val *RequestCollection, id string) (*RequestResult, error) {
+
+	if val.Done {
+		rr := val.Result
+		p.rem(id)
+		return rr, nil
+	}
+
+	return nil, errors.New("Could not pop")
+}
+
+// blocking call
+func (p *Pool) PopWhenCompleted(id string) (*RequestResult, error) {
+	if val, ok := p.collections[id]; ok {
+		for {
+			rr, err := p.popCompleted(val, id)
+			if err == nil {
+				return rr, nil
+			}
+			time.Sleep(time.Second * 3)
+		}
+	}
 	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
 }
 
@@ -132,7 +159,7 @@ func (p *Pool) NumOfRunning() int {
 	defer p.mu.RUnlock()
 	counter := 0
 	for _, x := range p.collections {
-		if x.Done {
+		if x.Start {
 			counter++
 		}
 	}
@@ -147,7 +174,7 @@ func (p *Pool) Completed() int {
 }
 
 // Returns list for the collections that have finished
-func (p *Pool) GetFinished() []string {
+func (p *Pool) GetFinishedList() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.finished
@@ -155,6 +182,7 @@ func (p *Pool) GetFinished() []string {
 
 // Run scrape
 func (p *Pool) Run(id, method string, n int) {
+	p.collections[id].Start = true
 	switch method {
 	case "complete":
 		go CompleteSession(p.collections[id])
@@ -162,16 +190,25 @@ func (p *Pool) Run(id, method string, n int) {
 	case "batch":
 		go Batch(p.collections[id], 2, "3s")
 		break
+	case "simple":
+		go Simple(p.collections[id])
+		break
 	}
 }
 
 // Garbage collector for the pool
-func (p *Pool) collector() {
+func (p *Pool) collector(method func(rc *RequestCollection)) {
 	for {
 		select {
 		case x := <-p.end:
 			p.mu.Lock()
 			p.finished = append(p.finished, x)
+			// if we want to do something when the collection has finished with the scraped data
+			if method != nil {
+				method(p.collections[x])
+				// removes collection from the pool. The name will still exist in finished array
+				p.rem(x)
+			}
 			p.mu.Unlock()
 			break
 		case <-p.close:
@@ -180,20 +217,20 @@ func (p *Pool) collector() {
 	}
 }
 
-func (p *Pool) closeGC() {
-	p.close <- struct{}{}
-}
-
-func (p *Pool) GracefulClose() {
-
-}
+// func (p *Pool) closeGC() {
+// 	p.close <- struct{}{}
+// }
 
 func (p *Pool) Close() {
+	// fmt.Println("CLOSING: 5 Second Grace period")
+	// time.Sleep(time.Second * 10)
 	for _, x := range p.collections {
 		p.CancelCollection(x.Identity)
 	}
 	time.Sleep(time.Millisecond * 500)
-	p.closeGC()
+	// p.closeGC()
+	// Closing collector
+	p.close <- struct{}{}
 	return
 }
 
