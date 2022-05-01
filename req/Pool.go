@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+type RequestMethods int
+
+const (
+	METHOD_COMPLETE RequestMethods = iota
+	METHOD_BATCH
+	METHOD_SIMPLE
+)
+
 type Pool struct {
 	mu   sync.RWMutex
 	name string // Pool Name
@@ -18,11 +26,11 @@ type Pool struct {
 
 	// Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
 	end chan string
-	// end chan *RequestCollection
 
-	// Stores finished collections names
-	finished []string
-	// finished []*RequestCollection
+	// Stores finished collections names. We do not store requestcollection as functionality would
+	// require dereferencing when it doesn't have to be
+	// finished []string
+	finished map[string]struct{}
 
 	// Signal to close the Garbage collector and the pool. Closing pool will come later
 	close chan struct{}
@@ -32,11 +40,10 @@ type Pool struct {
 func (p *Pool) SetName(name string, method func(rc *RequestCollection)) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
-	p.finished = make([]string, 0)
-	// p.finished = make([]*RequestCollection, 0)
+	// p.finished = make([]string, 0)
+	p.finished = make(map[string]struct{}, 0)
 	p.close = make(chan struct{})
 	p.end = make(chan string)
-	// p.end = make(chan *RequestCollection)
 	go p.collector(method)
 }
 
@@ -47,10 +54,8 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
 		rc.Notify = &p.end
-		// rc.Safe = make(chan struct{})
 		rc.Cancel = make(chan struct{})
 		rc.Result = &RequestResult{}
-		// rc.Extend = make(chan *RequestSend)
 		p.collections[col] = rc
 	} else {
 		log.Println("This collection ID already exists")
@@ -173,24 +178,38 @@ func (p *Pool) Completed() int {
 	return len(p.finished)
 }
 
+// // Returns list for the collections that have finished
+// func (p *Pool) GetFinishedList() []string {
+// 	p.mu.Lock()
+// 	defer p.mu.Unlock()
+// 	return p.finished
+// }
+
 // Returns list for the collections that have finished
-func (p *Pool) GetFinishedList() []string {
+func (p *Pool) GetFinishedList() map[string]struct{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.finished
 }
 
+func (p *Pool) AmIFinished(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	_, ok := p.collections[id]
+	return ok
+}
+
 // Run scrape
-func (p *Pool) Run(id, method string, n int) {
+func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
 	switch method {
-	case "complete":
+	case METHOD_COMPLETE:
 		go CompleteSession(p.collections[id])
 		break
-	case "batch":
+	case METHOD_BATCH:
 		go Batch(p.collections[id], 2, "3s")
 		break
-	case "simple":
+	case METHOD_SIMPLE:
 		go Simple(p.collections[id])
 		break
 	}
@@ -202,7 +221,8 @@ func (p *Pool) collector(method func(rc *RequestCollection)) {
 		select {
 		case x := <-p.end:
 			p.mu.Lock()
-			p.finished = append(p.finished, x)
+			// p.finished = append(p.finished, x)
+			p.finished[x] = struct{}{}
 			// if we want to do something when the collection has finished with the scraped data
 			if method != nil {
 				method(p.collections[x])

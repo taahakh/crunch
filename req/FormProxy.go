@@ -86,27 +86,34 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	go func() {
 		for {
-
 			time.Sleep(time.Millisecond * sleepTime)
 
 			select {
 			case item := <-retry:
-				if item.Caught == true {
+				switch {
+				case item.Caught:
 					cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 					q.Add(item)
-				} else if item.Retries == 0 {
+
+					break
+				case item.Retries == 0:
 					cDone--
-				} else {
+
+					break
+				default:
 					counter = changeClient(item.Client, rj.RJ.Clients, counter)
 					q.Add(item)
 				}
+
 				break
 			case <-cancel:
 				end <- struct{}{}
+
 				return
 			default:
 				if cDone == 0 {
 					end <- struct{}{}
+
 					return
 				}
 			}
@@ -139,19 +146,36 @@ loop:
 		select {
 		// Handling retries
 		case item := <-retry:
-			if item.Caught == true {
+			// if item.Caught {
+			// 	cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+			// 	go HandleRequest(item, retry, result, &wg)
+			// } else if item.Retries == 0 {
+			// 	cDone++
+			// 	continue
+			// } else {
+			// 	item.Client = rj.RJ.Clients[cClient]
+			// 	cClient++
+			// 	if cClient == len(rj.RJ.Clients) {
+			// 		cClient = 0
+			// 	}
+			// 	go HandleRequest(item, retry, result, &wg)
+			// }
+			switch {
+			case item.Caught:
 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 				go HandleRequest(item, retry, result, &wg)
-			} else if item.Retries == 0 {
+				break
+			case item.Retries == 0:
 				cDone++
-				continue
-			} else {
+				break
+			default:
 				item.Client = rj.RJ.Clients[cClient]
 				cClient++
 				if cClient == len(rj.RJ.Clients) {
 					cClient = 0
 				}
 				go HandleRequest(item, retry, result, &wg)
+
 			}
 			break
 		case <-cancel:
@@ -168,18 +192,14 @@ loop:
 }
 
 func Simple(rc *RequestCollection) {
-
 	defer rc.SignalFinish()
 
 	var wg sync.WaitGroup
 	// RETRY has NO functionality
-	// retry := make(chan *RequestSend, len(rc.RS))
 	retry := make(chan *RequestSend)
 	result := rc.Result
 	cancel := rc.Cancel
 	finish := make(chan struct{})
-
-	// cDone := len(rc.RS)
 
 	for _, x := range rc.RS {
 		go HandleRequest(x, retry, result, &wg)
@@ -204,8 +224,9 @@ loop:
 	}
 
 	return
-
 }
+
+// ----------------------------------------------------------
 
 func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
 
@@ -287,7 +308,7 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 
 // if true, it means that the scrape was unsuccessful
 // if false, scrape successful
-// it is up to the user to add their scraped data into RequestResult
+// it is up toxw the user to add their scraped data into RequestResult
 func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
