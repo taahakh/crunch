@@ -56,20 +56,16 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
 	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 	end := make(chan struct{})
-	// complete := rj.Complete
+	complete := rj.Complete
 
-	counter := 0
+	cClient := 0
 	cDone := len(rj.RJ.Links)
 	cHeader := 0
 
 	q := Queue{}
 	q.Make(rj.RS)
 
-	// go func() {
-	// 	wg.Wait()
-	// 	*complete <- rj.Identity
-	// 	return
-	// }()
+	wg.Add(1)
 
 	go func() {
 		// We go thorugh the list first without doing the retries
@@ -93,39 +89,40 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	}()
 
 	go func() {
+
 		for {
 			time.Sleep(time.Millisecond * sleepTime)
 
 			select {
 			case item := <-retry:
-				switch {
-				case item.Caught:
+				if item.Caught {
 					cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 					q.Add(item)
-
-					break
-				case item.Retries == 0:
+				} else if item.Retries == 0 {
 					cDone--
-
-					break
-				default:
-					counter = changeClient(item.Client, rj.RJ.Clients, counter)
+				} else {
+					cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
 					q.Add(item)
 				}
-
 				break
 			case <-cancel:
 				end <- struct{}{}
-
+				wg.Done()
 				return
 			default:
 				if cDone == 0 {
 					end <- struct{}{}
-
+					wg.Done()
 					return
 				}
 			}
 		}
+	}()
+
+	go func() {
+		wg.Wait()
+		*complete <- rj.Identity
+		return
 	}()
 
 	return
@@ -133,15 +130,13 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 func CompleteSession(rj *RequestCollection) {
 
-	// defer rj.SignalFinish()
-
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
 	result := rj.Result                  // Scrape results
 	cancel := rj.Cancel
 	complete := rj.Complete
+	end := make(chan struct{})
 
-	cDone := 0
 	cClient := 0
 	cHeader := 0
 
@@ -153,6 +148,7 @@ func CompleteSession(rj *RequestCollection) {
 	go func() {
 		wg.Wait()
 		*complete <- rj.Identity
+		end <- struct{}{}
 		return
 	}()
 
@@ -164,27 +160,22 @@ loop:
 			switch {
 			case item.Caught:
 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+				wg.Add(1)
 				go HandleRequest(item, retry, result, &wg)
 				break
 			case item.Retries == 0:
-				cDone++
 				break
 			default:
-				item.Client = rj.RJ.Clients[cClient]
-				cClient++
-				if cClient == len(rj.RJ.Clients) {
-					cClient = 0
-				}
+				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
+				wg.Add(1)
 				go HandleRequest(item, retry, result, &wg)
-
 			}
+
 			break
 		case <-cancel:
 			break loop
-		default:
-			if cDone == len(rj.RJ.Links) {
-				break loop
-			}
+		case <-end:
+			break loop
 		}
 	}
 
@@ -295,6 +286,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 
 func changeClient(client *http.Client, list []*http.Client, counter int) int {
 	client = list[counter]
+	counter++
 	if counter == len(list) {
 		counter = 0
 	}

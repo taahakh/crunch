@@ -35,9 +35,6 @@ type Pool struct {
 
 	/* Pool Usage */
 
-	// SINGALS to close ALL REQUESTS and NOT cuurently SCRAPING data
-	// end chan string
-
 	// SIGNALS where a gorotuine has finished
 	// Collects collection identifier and is stored in finsihed
 	complete chan string
@@ -218,11 +215,6 @@ func (p *Pool) Run(id string, method RequestMethods, n int) {
 func (p *Pool) collector(settings PoolSettings) {
 	for {
 		select {
-		// case x := <-p.end:
-		// 	p.mu.Lock()
-		// 	fmt.Println(x)
-		// 	p.mu.Unlock()
-		// 	break
 		case y := <-p.complete:
 			// if we want to do something when the collection has finished with the scraped data
 			p.mu.Lock()

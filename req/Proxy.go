@@ -74,7 +74,7 @@ func ConnProxNoDefer(link, proxy string, timeout time.Duration) (*http.Response,
 	return res, err
 }
 
-func CreateLinkRequestContext(links []*url.URL, retries int) []*RequestItem {
+func CreateLinkRequestContext(links []*url.URL) []*RequestItem {
 	r := make([]*RequestItem, 0, len(links))
 
 	for _, x := range links {
@@ -134,7 +134,7 @@ func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse
 	rs := make([]*RequestSend, 0, len(urls))
 	req := ConvertToURL(urls)
 
-	ri := CreateLinkRequestContext(req, 0)
+	ri := CreateLinkRequestContext(req)
 	for _, x := range ri {
 		rs = append(rs, &RequestSend{
 			Request: x,
@@ -164,7 +164,7 @@ func SimpleProxySetup(
 	req := ConvertToURL(urls)
 	cli := ConvertToURL(proxy)
 
-	ri = CreateLinkRequestContext(req, retries)
+	ri = CreateLinkRequestContext(req)
 	c := CreateProxyClient(cli, timeout)
 
 	if headers != nil {
@@ -180,7 +180,7 @@ func SimpleProxySetup(
 		Links:   ri,
 	}
 
-	rs, err := CreateRequestSend(c, ri, method)
+	rs, err := CreateRequestSend(c, ri, retries, method)
 	if err != nil {
 		panic("NICE")
 	}
@@ -191,7 +191,7 @@ func SimpleProxySetup(
 	}
 }
 
-func CreateRequestSend(rc []*http.Client, ri []*RequestItem, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
+func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
 	counter := 0
 	if len(rc) == 0 || len(ri) == 0 {
 		return nil, errors.New("Either list is of size 0")
@@ -205,6 +205,7 @@ func CreateRequestSend(rc []*http.Client, ri []*RequestItem, method func(doc *tr
 			Request: x,
 			Client:  rc[counter],
 			Method:  method,
+			Retries: retries,
 		})
 	}
 
