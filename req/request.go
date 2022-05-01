@@ -2,7 +2,6 @@ package req
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -17,15 +16,6 @@ type RequestResult struct {
 	res     []*interface{}
 	counter int
 }
-
-// type RequestResult struct {
-// 	// All successful requests and handled HTML's are stored here
-// 	// Counter tracks the number of successful results
-// 	mu sync.Mutex
-// 	res     []traverse.HTMLDocument
-// 	// res     []*interface{}
-// 	counter int
-// }
 
 type RequestItem struct {
 	Request *http.Request
@@ -66,12 +56,15 @@ type RequestCollection struct {
 	// Provides identity for collection and allows the pool to identify
 	Identity string
 
-	// Pool sending cancel struct to end goroutines/requests for this collection
+	// Pool sending cancel struct to end REQUESTS for this collection
 	Cancel chan struct{}
 
-	// Telling the pool that this collection has finally stopped running.
+	// Telling the pool that this collection REQUESTS has finally stopped running.
 	// Sends the identity of this collection back to the pool
 	Notify *chan string
+
+	// Tells the pool that this collection has finished
+	Complete *chan string
 
 	// Used for cancelling collections. We need to know if the process has started or it will hang when trying to cancel
 	Start bool
@@ -130,19 +123,6 @@ func (rs *RequestSend) SetHeadersStruct(header *http.Header) {
 	rs.Request.Request.Header = *header
 }
 
-// func (c *RequestResult) add(b traverse.HTMLDocument) {
-// 	c.mu.Lock()
-// 	defer c.mu.Unlock()
-// 	c.res = append(c.res, b)
-// 	c.counter++
-// }
-
-// func (c *RequestResult) Read() []traverse.HTMLDocument {
-// 	c.mu.Lock()
-// 	defer c.mu.Unlock()
-// 	return c.res
-// }
-
 func (c *RequestResult) Add(b interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -160,11 +140,11 @@ func (c *RequestResult) Count() int {
 	return c.counter
 }
 
-func (r *RequestCollection) SignalFinish() {
-	fmt.Println("Signaled finish: ", r.Identity)
-	r.Done = true
-	*r.Notify <- r.Identity
-}
+// func (r *RequestCollection) SignalFinish() {
+// 	fmt.Println("Signaled finish: ", r.Identity)
+// 	r.Done = true
+// 	*r.Notify <- r.Identity
+// }
 
 func (ri *RequestItem) CancelRequest() {
 	cancel := *ri.Cancel

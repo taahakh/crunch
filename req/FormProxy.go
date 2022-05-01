@@ -26,7 +26,7 @@ const (
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
 func Batch(rj *RequestCollection, size int, gap string) {
-	defer rj.SignalFinish()
+	// defer rj.SignalFinish()
 
 	var dur time.Duration
 
@@ -56,6 +56,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
 	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 	end := make(chan struct{})
+	// complete := rj.Complete
 
 	counter := 0
 	cDone := len(rj.RJ.Links)
@@ -63,6 +64,12 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	q := Queue{}
 	q.Make(rj.RS)
+
+	// go func() {
+	// 	wg.Wait()
+	// 	*complete <- rj.Identity
+	// 	return
+	// }()
 
 	go func() {
 		// We go thorugh the list first without doing the retries
@@ -76,6 +83,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 					if item == nil {
 						continue
 					}
+					wg.Add(1)
 					go HandleRequest(item, retry, result, &wg)
 				}
 
@@ -125,41 +133,34 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 func CompleteSession(rj *RequestCollection) {
 
-	defer rj.SignalFinish()
+	// defer rj.SignalFinish()
 
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
 	result := rj.Result                  // Scrape results
-	// safe := rj.Safe
 	cancel := rj.Cancel
+	complete := rj.Complete
 
 	cDone := 0
 	cClient := 0
 	cHeader := 0
 
 	for _, x := range rj.RS {
+		wg.Add(1)
 		go HandleRequest(x, retry, result, &wg)
 	}
+
+	go func() {
+		wg.Wait()
+		*complete <- rj.Identity
+		return
+	}()
 
 loop:
 	for {
 		select {
 		// Handling retries
 		case item := <-retry:
-			// if item.Caught {
-			// 	cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
-			// 	go HandleRequest(item, retry, result, &wg)
-			// } else if item.Retries == 0 {
-			// 	cDone++
-			// 	continue
-			// } else {
-			// 	item.Client = rj.RJ.Clients[cClient]
-			// 	cClient++
-			// 	if cClient == len(rj.RJ.Clients) {
-			// 		cClient = 0
-			// 	}
-			// 	go HandleRequest(item, retry, result, &wg)
-			// }
 			switch {
 			case item.Caught:
 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
@@ -192,22 +193,25 @@ loop:
 }
 
 func Simple(rc *RequestCollection) {
-	defer rc.SignalFinish()
+	// defer rc.SignalFinish()
 
 	var wg sync.WaitGroup
 	// RETRY has NO functionality
 	retry := make(chan *RequestSend)
 	result := rc.Result
 	cancel := rc.Cancel
+	complete := rc.Complete
 	finish := make(chan struct{})
 
 	for _, x := range rc.RS {
+		wg.Add(1)
 		go HandleRequest(x, retry, result, &wg)
 	}
 
 	go func() {
 		wg.Wait()
 		finish <- struct{}{}
+		*complete <- rc.Identity
 		return
 	}()
 
@@ -233,7 +237,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	var resp *http.Response
 	var err error
 
-	wg.Add(1)
+	// wg.Add(1)
 	defer wg.Done()
 
 	client := req.Client

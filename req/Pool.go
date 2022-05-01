@@ -7,6 +7,17 @@ import (
 	"time"
 )
 
+type PoolLook interface {
+	Close()
+	Collections() map[string]*RequestCollection
+}
+
+type PoolSettings struct {
+	AllCollectionsCompleted      func(p PoolLook)
+	IncomingCompletedCollections func(rc *RequestCollection)
+	IncomingRequestCompletion    func(name string)
+}
+
 type RequestMethods int
 
 const (
@@ -24,12 +35,15 @@ type Pool struct {
 
 	/* Pool Usage */
 
-	// Channel to collect all ended collections. Collects collection identifier and is stored in finsihed
-	end chan string
+	// SINGALS to close ALL REQUESTS and NOT cuurently SCRAPING data
+	// end chan string
+
+	// SIGNALS where a gorotuine has finished
+	// Collects collection identifier and is stored in finsihed
+	complete chan string
 
 	// Stores finished collections names. We do not store requestcollection as functionality would
 	// require dereferencing when it doesn't have to be
-	// finished []string
 	finished map[string]struct{}
 
 	// Signal to close the Garbage collector and the pool. Closing pool will come later
@@ -37,14 +51,14 @@ type Pool struct {
 }
 
 // Setting an identifier for our pool
-func (p *Pool) SetName(name string, method func(rc *RequestCollection)) {
+func (p *Pool) New(name string, settings PoolSettings) {
 	p.name = name
 	p.collections = make(map[string]*RequestCollection, 0)
-	// p.finished = make([]string, 0)
 	p.finished = make(map[string]struct{}, 0)
 	p.close = make(chan struct{})
-	p.end = make(chan string)
-	go p.collector(method)
+	// p.end = make(chan string)
+	p.complete = make(chan string)
+	go p.collector(settings)
 }
 
 // Add collection to the map
@@ -53,7 +67,8 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
-		rc.Notify = &p.end
+		// rc.Notify = &p.end
+		rc.Complete = &p.complete
 		rc.Cancel = make(chan struct{})
 		rc.Result = &RequestResult{}
 		p.collections[col] = rc
@@ -76,12 +91,14 @@ func (p *Pool) Remove(col string) error {
 	return errors.New("Cannot remove until this is collection is finished or cancelled")
 }
 
-// Unsafe removal. Should be used when collection is safe to remove
+// UNSAFE
+// Should be used when collection is safe to remove
 // The collection will run even when removed
 func (p *Pool) rem(id string) {
 	delete(p.collections, id)
 }
 
+// UNSAFE
 // Checking our collection and deleting any one that has been finished
 func (p *Pool) Refresh() {
 	p.mu.RLock()
@@ -121,13 +138,15 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 	return nil, errors.New("Collection doesn't exist")
 }
 
-//  Removes successfully when the requestcollection has been given done status
-func (p *Pool) PopIfCompleted(id string) (*RequestResult, error) {
+//  Pops from collection and returns the scraped data
+func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if val, ok := p.collections[id]; ok {
 		rr, err := p.popCompleted(val, id)
-		return rr, err
+		result := rr.Read()
+		p.rem(id)
+		return result, err
 	}
 
 	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
@@ -144,21 +163,8 @@ func (p *Pool) popCompleted(val *RequestCollection, id string) (*RequestResult, 
 	return nil, errors.New("Could not pop")
 }
 
-// blocking call
-func (p *Pool) PopWhenCompleted(id string) (*RequestResult, error) {
-	if val, ok := p.collections[id]; ok {
-		for {
-			rr, err := p.popCompleted(val, id)
-			if err == nil {
-				return rr, nil
-			}
-			time.Sleep(time.Second * 3)
-		}
-	}
-	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
-}
-
 // See how many Collections are running
+// EXPENSIVE
 func (p *Pool) NumOfRunning() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -172,18 +178,11 @@ func (p *Pool) NumOfRunning() int {
 }
 
 // Return how many operations have been completed
-func (p *Pool) Completed() int {
+func (p *Pool) NumOfCompleted() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.finished)
 }
-
-// // Returns list for the collections that have finished
-// func (p *Pool) GetFinishedList() []string {
-// 	p.mu.Lock()
-// 	defer p.mu.Unlock()
-// 	return p.finished
-// }
 
 // Returns list for the collections that have finished
 func (p *Pool) GetFinishedList() map[string]struct{} {
@@ -195,7 +194,7 @@ func (p *Pool) GetFinishedList() map[string]struct{} {
 func (p *Pool) AmIFinished(id string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	_, ok := p.collections[id]
+	_, ok := p.finished[id]
 	return ok
 }
 
@@ -216,39 +215,47 @@ func (p *Pool) Run(id string, method RequestMethods, n int) {
 }
 
 // Garbage collector for the pool
-func (p *Pool) collector(method func(rc *RequestCollection)) {
+func (p *Pool) collector(settings PoolSettings) {
 	for {
 		select {
-		case x := <-p.end:
-			p.mu.Lock()
-			// p.finished = append(p.finished, x)
-			p.finished[x] = struct{}{}
+		// case x := <-p.end:
+		// 	p.mu.Lock()
+		// 	fmt.Println(x)
+		// 	p.mu.Unlock()
+		// 	break
+		case y := <-p.complete:
 			// if we want to do something when the collection has finished with the scraped data
-			if method != nil {
-				method(p.collections[x])
+			p.mu.Lock()
+			p.finished[y] = struct{}{}
+			if settings.IncomingCompletedCollections != nil {
+				settings.IncomingCompletedCollections(p.collections[y])
 				// removes collection from the pool. The name will still exist in finished array
-				p.rem(x)
+				// but gone for good
+				p.rem(y)
 			}
 			p.mu.Unlock()
-			break
 		case <-p.close:
 			return
 		}
 	}
 }
 
-// func (p *Pool) closeGC() {
-// 	p.close <- struct{}{}
-// }
+func (p *Pool) Collections() map[string]*RequestCollection {
+	return p.collections
+}
+
+// Prints how many stored collections there are
+func (p *Pool) Stored() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.collections)
+}
 
 func (p *Pool) Close() {
-	// fmt.Println("CLOSING: 5 Second Grace period")
-	// time.Sleep(time.Second * 10)
 	for _, x := range p.collections {
 		p.CancelCollection(x.Identity)
 	}
 	time.Sleep(time.Millisecond * 500)
-	// p.closeGC()
 	// Closing collector
 	p.close <- struct{}{}
 	return
