@@ -10,9 +10,9 @@ import (
 type RequestMethods int
 
 const (
-	METHOD_COMPLETE RequestMethods = iota
-	METHOD_BATCH
-	METHOD_SIMPLE
+	Method_Complete RequestMethods = iota
+	Method_Batch
+	Method_Simple
 )
 
 type Pool struct {
@@ -203,13 +203,13 @@ func (p *Pool) AmIFinished(id string) bool {
 func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
 	switch method {
-	case METHOD_COMPLETE:
+	case Method_Complete:
 		go CompleteSession(p.collections[id])
 		break
-	case METHOD_BATCH:
+	case Method_Batch:
 		go Batch(p.collections[id], 2, "3s")
 		break
-	case METHOD_SIMPLE:
+	case Method_Simple:
 		go Simple(p.collections[id])
 		break
 	}
