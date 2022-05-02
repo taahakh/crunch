@@ -1,6 +1,7 @@
 package req
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,7 +14,8 @@ import (
 )
 
 const (
-	sleepTime = 1000
+	ProxyConnectionPoolError = "ProxyConnection: Client Failed! [POOL]"
+	sleepTime                = 1000
 )
 
 // ---------------------------------------------------------------------------------
@@ -139,8 +141,8 @@ func CompleteSession(rj *RequestCollection) {
 	complete := rj.Complete
 	end := make(chan struct{})
 
-	// cClient := 0
-	// cHeader := 0
+	cClient := 0
+	cHeader := 0
 
 	for _, x := range rj.RS {
 		wg.Add(1)
@@ -154,34 +156,34 @@ func CompleteSession(rj *RequestCollection) {
 		return
 	}()
 
-	// loop:
-	// 	for {
-	// 		select {
-	// 		// Handling retries
-	// 		case item := <-retry:
-	// 			switch {
-	// 			case item.Caught:
-	// 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
-	// 				wg.Add(1)
-	// 				go HandleRequest(item, retry, result, &wg)
-	// 				break
-	// 			case item.Retries == 0:
-	// 				break
-	// 			default:
-	// 				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
-	// 				wg.Add(1)
-	// 				go HandleRequest(item, retry, result, &wg)
-	// 			}
+loop:
+	for {
+		select {
+		// Handling retries
+		case item := <-retry:
+			switch {
+			case item.Caught:
+				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+				wg.Add(1)
+				go HandleRequest(item, retry, result, &wg)
+				break
+			case item.Retries == 0:
+				break
+			default:
+				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
+				wg.Add(1)
+				go HandleRequest(item, retry, result, &wg)
+			}
 
-	// 			break
-	// 		case <-cancel:
-	// 			break loop
-	// 		case <-end:
-	// 			break loop
-	// 		}
-	// 	}
+			break
+		case <-cancel:
+			break loop
+		case <-end:
+			break loop
+		}
+	}
 
-	completeCriterion(retry, rj, result, &cancel, &end, &wg)
+	// completeCriterion(retry, rj, result, &cancel, &end, &wg)
 
 	// This closes goroutine if it is run as a goroutine
 	return
@@ -224,7 +226,8 @@ func Simple(rc *RequestCollection) {
 
 	var wg sync.WaitGroup
 	// RETRY has NO functionality
-	retry := make(chan *RequestSend)
+	// We need to assign length so all the retries can delegated over here
+	// retry := make(chan *RequestSend, len(rc.RS))
 	result := rc.Result
 	cancel := rc.Cancel
 	complete := rc.Complete
@@ -232,7 +235,8 @@ func Simple(rc *RequestCollection) {
 
 	for _, x := range rc.RS {
 		wg.Add(1)
-		go HandleRequest(x, retry, result, &wg)
+		// go HandleRequest(x, retry, result, &wg)
+		go HandleRequest(x, nil, result, &wg)
 	}
 
 	go func() {
@@ -242,18 +246,18 @@ func Simple(rc *RequestCollection) {
 		return
 	}()
 
-	// loop:
-	// 	for {
-	// 		select {
-	// 		case <-cancel:
-	// 			break loop
-	// 		case <-finish:
-	// 			break loop
-	// 		case <-retry:
-	// 			break
-	// 		}
-	// 	}
-	simpleCriterion(&cancel, &finish, retry)
+loop:
+	for {
+		select {
+		case <-cancel:
+			break loop
+		case <-finish:
+			break loop
+			// case <-retry:
+			// 	break
+		}
+	}
+	// simpleCriterion(&cancel, &finish, retry)
 
 	return
 }
@@ -279,6 +283,29 @@ func BatchWorker() {
 
 // ----------------------------------------------------------
 
+func clientProcess(client *http.Client, request *http.Request, req *RequestSend, retry chan *RequestSend) (*http.Response, error) {
+	resp, err := client.Do(request)
+
+	if err != nil {
+		req.Decrement()
+		retry <- req
+		return nil, errors.New(ProxyConnectionPoolError)
+	}
+
+	return resp, nil
+}
+
+func noClientProcess(request *http.Request) (*http.Response, error) {
+	cli := http.Client{}
+	resp, err := cli.Do(request)
+
+	if err != nil {
+		return nil, errors.New(ProxyConnectionPoolError)
+	}
+
+	return resp, nil
+}
+
 func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
 
 	var resp *http.Response
@@ -291,28 +318,19 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	request := req.Request.Request
 
 	if client != nil {
-		respX, errX := client.Do(request)
-		resp = respX
-		err = errX
+		resp, err = clientProcess(client, request, req, retry)
 	} else {
-		cli := http.Client{}
-		respX, errX := cli.Do(request)
-		resp = respX
-		err = errX
+		resp, err = noClientProcess(request)
 	}
 
 	if err != nil {
-		log.Println("ProxyConnection: Client Failed! [POOL]")
-		// resp.Body.Close()
-		req.Decrement()
-		retry <- req
+		log.Println(err)
 		return
 	}
 
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
-	// data, err := traverse.HTMLDocUTF8(resp)
 	data, err := RunScrape(resp, rr, req.Method)
 	if err != nil {
 		log.Println("Couldn't read body")
