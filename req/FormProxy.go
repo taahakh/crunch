@@ -128,6 +128,8 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	return
 }
 
+// ----------------------------------------------------------
+
 func CompleteSession(rj *RequestCollection) {
 
 	var wg sync.WaitGroup
@@ -137,8 +139,8 @@ func CompleteSession(rj *RequestCollection) {
 	complete := rj.Complete
 	end := make(chan struct{})
 
-	cClient := 0
-	cHeader := 0
+	// cClient := 0
+	// cHeader := 0
 
 	for _, x := range rj.RS {
 		wg.Add(1)
@@ -152,7 +154,42 @@ func CompleteSession(rj *RequestCollection) {
 		return
 	}()
 
-loop:
+	// loop:
+	// 	for {
+	// 		select {
+	// 		// Handling retries
+	// 		case item := <-retry:
+	// 			switch {
+	// 			case item.Caught:
+	// 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+	// 				wg.Add(1)
+	// 				go HandleRequest(item, retry, result, &wg)
+	// 				break
+	// 			case item.Retries == 0:
+	// 				break
+	// 			default:
+	// 				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
+	// 				wg.Add(1)
+	// 				go HandleRequest(item, retry, result, &wg)
+	// 			}
+
+	// 			break
+	// 		case <-cancel:
+	// 			break loop
+	// 		case <-end:
+	// 			break loop
+	// 		}
+	// 	}
+
+	completeCriterion(retry, rj, result, &cancel, &end, &wg)
+
+	// This closes goroutine if it is run as a goroutine
+	return
+}
+
+func completeCriterion(retry chan *RequestSend, rj *RequestCollection, result *RequestResult, cancel *chan struct{}, end *chan struct{}, wg *sync.WaitGroup) {
+	cHeader := 0
+	cClient := 0
 	for {
 		select {
 		// Handling retries
@@ -161,27 +198,26 @@ loop:
 			case item.Caught:
 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 				wg.Add(1)
-				go HandleRequest(item, retry, result, &wg)
+				go HandleRequest(item, retry, result, wg)
 				break
 			case item.Retries == 0:
 				break
 			default:
 				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
 				wg.Add(1)
-				go HandleRequest(item, retry, result, &wg)
+				go HandleRequest(item, retry, result, wg)
 			}
 
 			break
-		case <-cancel:
-			break loop
-		case <-end:
-			break loop
+		case <-*cancel:
+			return
+		case <-*end:
+			return
 		}
 	}
-
-	// This closes goroutine if it is run as a goroutine
-	return
 }
+
+// ----------------------------------------------------------
 
 func Simple(rc *RequestCollection) {
 	// defer rc.SignalFinish()
@@ -206,19 +242,39 @@ func Simple(rc *RequestCollection) {
 		return
 	}()
 
-loop:
+	// loop:
+	// 	for {
+	// 		select {
+	// 		case <-cancel:
+	// 			break loop
+	// 		case <-finish:
+	// 			break loop
+	// 		case <-retry:
+	// 			break
+	// 		}
+	// 	}
+	simpleCriterion(&cancel, &finish, retry)
+
+	return
+}
+
+func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan *RequestSend) {
 	for {
 		select {
-		case <-cancel:
-			break loop
-		case <-finish:
-			break loop
+		case <-*cancel:
+			return
+		case <-*finish:
+			return
 		case <-retry:
 			break
 		}
 	}
+}
 
-	return
+// ----------------------------------------------------------
+
+func BatchWorker() {
+
 }
 
 // ----------------------------------------------------------
