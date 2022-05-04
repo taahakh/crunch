@@ -7,8 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	// "net/proxy"
 	"net/url"
 	"time"
 

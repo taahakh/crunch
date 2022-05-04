@@ -160,8 +160,8 @@ func (p *Pool) popCompleted(val *RequestCollection, id string) (*RequestResult, 
 	return nil, errors.New("Could not pop")
 }
 
-// See how many Collections are running
 // EXPENSIVE
+// See how many Collections are running
 func (p *Pool) NumOfRunning() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

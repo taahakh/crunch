@@ -5,11 +5,12 @@ import (
 	"sync"
 )
 
-// A circular queue
+// A circular queue that implements a linear queue for further Scraping
 type Queue struct {
 	mu         sync.RWMutex
 	List       []*RequestSend
 	front, pop int
+	extend     *LinearQueue
 }
 
 func (q *Queue) New(length int) *Queue {
@@ -39,6 +40,8 @@ func (q *Queue) Add(rs *RequestSend) bool {
 			q.front = 0
 		}
 		return true
+	} else if q.extend != nil {
+		q.extend.Add(rs)
 	}
 
 	return false
@@ -56,6 +59,8 @@ func (q *Queue) Pop() *RequestSend {
 			q.pop = 0
 		}
 		return temp
+	} else if q.extend != nil {
+		q.extend.Pop()
 	}
 
 	return nil
@@ -64,5 +69,12 @@ func (q *Queue) Pop() *RequestSend {
 func (q *Queue) View() {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-	fmt.Println("List: ", q.List)
+	fmt.Println("(CQ) List: ", q.List)
+	fmt.Println("(LQ) List: ", q.List)
+}
+
+func (q *Queue) Extend(size int) {
+	q.extend = &LinearQueue{
+		list: make([]*RequestSend, 0, size),
+	}
 }

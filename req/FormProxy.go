@@ -18,6 +18,20 @@ const (
 	sleepTime                = 1000
 )
 
+// type ResultPackage interface {
+// 	Document() *traverse.HTMLDocument
+// 	Save(obj interface{})
+// 	Scrape(url string)
+// 	ScrapeStruct(rs *RequestSend)
+// }
+
+type ResultPackage struct {
+	Document *traverse.HTMLDocument
+	Save     *RequestResult
+	// Scrape       func(url string)
+	// ScrapeStruct func(rs *RequestSend)
+}
+
 // ---------------------------------------------------------------------------------
 
 // Handles retries, individual request timeouts and cancellations,
