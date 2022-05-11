@@ -43,7 +43,15 @@ type RequestSend struct {
 	Retries int
 
 	// The method to use to scrape the webpage
-	Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
+	// Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
+	Method func(rp ResultPackage) bool
+}
+
+type ResultPackage struct {
+	document     *traverse.HTMLDocument
+	save         *RequestResult
+	scrape       func(url string)
+	scrapeStruct func(rs *RequestSend)
 }
 
 type RequestCollection struct {
@@ -149,4 +157,28 @@ func (c *RequestResult) Count() int {
 func (ri *RequestItem) CancelRequest() {
 	cancel := *ri.Cancel
 	cancel()
+}
+
+func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, scrape func(url string), scrapeStruct func(rs *RequestSend)) ResultPackage {
+	rp.document = doc
+	rp.save = save
+	rp.scrape = scrape
+	rp.scrapeStruct = scrapeStruct
+	return rp
+}
+
+func (rp ResultPackage) Document() *traverse.HTMLDocument {
+	return rp.document
+}
+
+func (rp ResultPackage) Save(item interface{}) {
+	rp.save.Add(item)
+}
+
+func (rp ResultPackage) Scrape(url string) {
+	rp.scrape(url)
+}
+
+func (rp ResultPackage) ScrapeStruct(rs *RequestSend) {
+	rp.scrapeStruct(rs)
 }

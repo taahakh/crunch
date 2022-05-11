@@ -25,13 +25,6 @@ const (
 // 	ScrapeStruct(rs *RequestSend)
 // }
 
-type ResultPackage struct {
-	Document *traverse.HTMLDocument
-	Save     *RequestResult
-	// Scrape       func(url string)
-	// ScrapeStruct func(rs *RequestSend)
-}
-
 // ---------------------------------------------------------------------------------
 
 // Handles retries, individual request timeouts and cancellations,
@@ -345,6 +338,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
+	// data, err := RunScrape(resp, rr, req.Method)
 	data, err := RunScrape(resp, rr, req.Method)
 	if err != nil {
 		log.Println("Couldn't read body")
@@ -393,7 +387,26 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 // if true, it means that the scrape was unsuccessful
 // if false, scrape successful
 // it is up toxw the user to add their scraped data into RequestResult
-func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
+
+// func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
+// 	defer r.Body.Close()
+// 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
+// 	if err != nil {
+// 		log.Println("Failed utf8set")
+// 		return false, err
+// 	}
+// 	bytes, err := ioutil.ReadAll(utf8set)
+// 	if err != nil {
+// 		log.Println("Failed ioutil")
+// 		return false, err
+// 	}
+
+// 	item := traverse.HTMLDocBytes(&bytes)
+
+// 	return m(&item, res), err
+// }
+
+func RunScrape(r *http.Response, res *RequestResult, m func(rp ResultPackage) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
@@ -407,6 +420,7 @@ func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDo
 	}
 
 	item := traverse.HTMLDocBytes(&bytes)
-
-	return m(&item, res), err
+	pack := ResultPackage{}
+	pack = pack.New(&item, res, nil, nil)
+	return m(pack), err
 }

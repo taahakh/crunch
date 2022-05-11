@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/taahakh/speed/traverse"
 	"golang.org/x/net/proxy"
 )
 
@@ -128,7 +127,24 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	return req
 }
 
-func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+// func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+// 	rs := make([]*RequestSend, 0, len(urls))
+// 	req := ConvertToURL(urls)
+
+// 	ri := CreateLinkRequestContext(req)
+// 	for _, x := range ri {
+// 		rs = append(rs, &RequestSend{
+// 			Request: x,
+// 			Method:  method,
+// 		})
+// 	}
+
+// 	return &RequestCollection{
+// 		RS: rs,
+// 	}
+// }
+
+func SimpleSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
 	rs := make([]*RequestSend, 0, len(urls))
 	req := ConvertToURL(urls)
 
@@ -145,13 +161,57 @@ func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse
 	}
 }
 
+// func SimpleProxySetup(
+// 	proxy []string,
+// 	urls []string,
+// 	headers []*http.Header,
+// 	retries int,
+// 	timeout time.Duration,
+// 	method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+
+// 	var ri []*RequestItem
+
+// 	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
+// 		return nil
+// 	}
+
+// 	req := ConvertToURL(urls)
+// 	cli := ConvertToURL(proxy)
+
+// 	ri = CreateLinkRequestContext(req)
+// 	c := CreateProxyClient(cli, timeout)
+
+// 	if headers != nil {
+// 		req, err := ApplyHeadersRI(ri, headers)
+// 		if err != nil {
+// 			log.Println("Header error")
+// 		}
+// 		ri = req
+// 	}
+
+// 	rj := &RequestJar{
+// 		Clients: c,
+// 		Links:   ri,
+// 	}
+
+// 	rs, err := CreateRequestSend(c, ri, retries, method)
+// 	if err != nil {
+// 		panic("NICE")
+// 	}
+
+// 	return &RequestCollection{
+// 		RJ: rj,
+// 		RS: rs,
+// 	}
+// }
+
 func SimpleProxySetup(
 	proxy []string,
 	urls []string,
 	headers []*http.Header,
 	retries int,
 	timeout time.Duration,
-	method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+	method func(rp ResultPackage) bool) *RequestCollection {
 
 	var ri []*RequestItem
 
@@ -189,7 +249,28 @@ func SimpleProxySetup(
 	}
 }
 
-func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
+// func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
+// 	counter := 0
+// 	if len(rc) == 0 || len(ri) == 0 {
+// 		return nil, errors.New("Either list is of size 0")
+// 	}
+// 	rs := make([]*RequestSend, 0, len(ri))
+// 	for _, x := range ri {
+// 		if counter == len(rc) {
+// 			counter = 0
+// 		}
+// 		rs = append(rs, &RequestSend{
+// 			Request: x,
+// 			Client:  rc[counter],
+// 			Method:  method,
+// 			Retries: retries,
+// 		})
+// 	}
+
+// 	return rs, nil
+// }
+
+func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(rp ResultPackage) bool) ([]*RequestSend, error) {
 	counter := 0
 	if len(rc) == 0 || len(ri) == 0 {
 		return nil, errors.New("Either list is of size 0")
