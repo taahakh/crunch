@@ -8,6 +8,11 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
+// var (
+// 	Scrape       func(url string) *RequestSend
+// 	ScrapeStruct func(rs *RequestSend) *RequestSend
+// )
+
 // Stores the results that have been successful
 type RequestResult struct {
 	// All successful requests and handled HTML's are stored here
@@ -50,8 +55,9 @@ type RequestSend struct {
 type ResultPackage struct {
 	document     *traverse.HTMLDocument
 	save         *RequestResult
-	scrape       func(url string) *RequestSend
-	scrapeStruct func(rs *RequestSend) *RequestSend
+	channel      chan *RequestSend
+	scrape       func(url []string) []*RequestSend
+	scrapeStruct func(rs []*RequestSend) []*RequestSend
 }
 
 type RequestCollection struct {
@@ -159,9 +165,10 @@ func (ri *RequestItem) CancelRequest() {
 	cancel()
 }
 
-func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, scrape func(url string) *RequestSend, scrapeStruct func(rs *RequestSend) *RequestSend) ResultPackage {
+func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend, scrape func(url []string) []*RequestSend, scrapeStruct func(rs []*RequestSend) []*RequestSend) ResultPackage {
 	rp.document = doc
 	rp.save = save
+	rp.channel = retry
 	rp.scrape = scrape
 	rp.scrapeStruct = scrapeStruct
 	return rp
@@ -175,10 +182,26 @@ func (rp ResultPackage) Save(item interface{}) {
 	rp.save.Add(item)
 }
 
-func (rp ResultPackage) Scrape(url string) {
-	rp.scrape(url)
+func (rp ResultPackage) Scrape(url []string) {
+	items := rp.scrape(url)
+	for _, x := range items {
+		rp.channel <- x
+	}
 }
 
-func (rp ResultPackage) ScrapeStruct(rs *RequestSend) {
-	rp.scrapeStruct(rs)
+func (rp ResultPackage) ScrapeStruct(rs []*RequestSend) {
+	for _, x := range rs {
+		rp.channel <- x
+	}
+}
+
+func Scrape(url []string) []*RequestSend {
+	urls := CreateLinkRequestContext(ConvertToURL(url))
+	items := make([]*RequestSend, 0, len(urls))
+	for _, x := range urls {
+		items = append(items, &RequestSend{
+			Request: x,
+		})
+	}
+	return items
 }

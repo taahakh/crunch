@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
+// Proxy constants
 const (
 	ProxyConnectionPoolError = "ProxyConnection: Client Failed! [POOL]"
 	sleepTime                = 1000
@@ -342,7 +343,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	defer resp.Body.Close()
 
 	// data, err := RunScrape(resp, rr, req.Method)
-	data, err := RunScrape(resp, rr, req.Method)
+	data, err := RunScrape(resp, rr, retry, req.Method)
 	if err != nil {
 		log.Println("Couldn't read body")
 		return
@@ -409,7 +410,7 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 // 	return m(&item, res), err
 // }
 
-func RunScrape(r *http.Response, res *RequestResult, m func(rp ResultPackage) bool) (bool, error) {
+func RunScrape(r *http.Response, res *RequestResult, retry chan *RequestSend, m func(rp ResultPackage) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
@@ -424,6 +425,6 @@ func RunScrape(r *http.Response, res *RequestResult, m func(rp ResultPackage) bo
 
 	item := traverse.HTMLDocBytes(&bytes)
 	pack := ResultPackage{}
-	pack = pack.New(&item, res, nil, nil)
+	pack = pack.New(&item, res, retry, nil, nil)
 	return m(pack), err
 }
