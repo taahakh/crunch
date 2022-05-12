@@ -2,6 +2,7 @@ package req
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -53,11 +54,11 @@ type RequestSend struct {
 }
 
 type ResultPackage struct {
-	document     *traverse.HTMLDocument
-	save         *RequestResult
-	channel      chan *RequestSend
-	scrape       func(url []string) []*RequestSend
-	scrapeStruct func(rs []*RequestSend) []*RequestSend
+	document *traverse.HTMLDocument
+	save     *RequestResult
+	channel  chan *RequestSend
+	// scrape       func(url []string) []*RequestSend
+	// scrapeStruct func(rs []*RequestSend) []*RequestSend
 }
 
 type RequestCollection struct {
@@ -165,12 +166,20 @@ func (ri *RequestItem) CancelRequest() {
 	cancel()
 }
 
-func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend, scrape func(url []string) []*RequestSend, scrapeStruct func(rs []*RequestSend) []*RequestSend) ResultPackage {
+// func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend, scrape func(url []string) []*RequestSend, scrapeStruct func(rs []*RequestSend) []*RequestSend) ResultPackage {
+// 	rp.document = doc
+// 	rp.save = save
+// 	rp.channel = retry
+// 	// rp.scrape = scrape
+// 	// rp.scrapeStruct = scrapeStruct
+// 	return rp
+// }
+func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend) ResultPackage {
 	rp.document = doc
 	rp.save = save
 	rp.channel = retry
-	rp.scrape = scrape
-	rp.scrapeStruct = scrapeStruct
+	// rp.scrape = scrape
+	// rp.scrapeStruct = scrapeStruct
 	return rp
 }
 
@@ -183,10 +192,11 @@ func (rp ResultPackage) Save(item interface{}) {
 }
 
 func (rp ResultPackage) Scrape(url []string) {
-	items := rp.scrape(url)
-	for _, x := range items {
-		rp.channel <- x
-	}
+	// items := Scrape(url)
+	// for _, x := range items {
+	// 	rp.channel <- x
+	// }
+	fmt.Println("Scrape part")
 }
 
 func (rp ResultPackage) ScrapeStruct(rs []*RequestSend) {
@@ -201,6 +211,7 @@ func Scrape(url []string) []*RequestSend {
 	for _, x := range urls {
 		items = append(items, &RequestSend{
 			Request: x,
+			Retries: 1,
 		})
 	}
 	return items

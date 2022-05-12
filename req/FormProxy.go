@@ -237,6 +237,7 @@ func Simple(rc *RequestCollection) {
 	var wg sync.WaitGroup
 	// RETRY has NO functionality
 	// We need to assign length so all the retries can delegated over here
+	retry := make(chan *RequestSend)
 	// retry := make(chan *RequestSend, len(rc.RS))
 	result := rc.Result
 	cancel := rc.Cancel
@@ -245,8 +246,8 @@ func Simple(rc *RequestCollection) {
 
 	for _, x := range rc.RS {
 		wg.Add(1)
-		// go HandleRequest(x, retry, result, &wg)
-		go HandleRequest(x, nil, result, &wg)
+		go HandleRequest(x, retry, result, &wg)
+		// go HandleRequest(x, nil, result, &wg)
 	}
 
 	go func() {
@@ -264,8 +265,11 @@ loop:
 			break loop
 		case <-finish:
 			break loop
-			// case <-retry:
-			// 	break
+		case item := <-retry:
+			wg.Add(1)
+			// go HandleRequest(x, retry, result, &wg)
+			go HandleRequest(item, retry, result, &wg)
+			break
 		}
 	}
 	// simpleCriterion(&cancel, &finish, retry)
@@ -425,6 +429,7 @@ func RunScrape(r *http.Response, res *RequestResult, retry chan *RequestSend, m 
 
 	item := traverse.HTMLDocBytes(&bytes)
 	pack := ResultPackage{}
-	pack = pack.New(&item, res, retry, nil, nil)
+	// pack = pack.New(&item, res, retry, nil, nil)
+	pack = pack.New(&item, res, retry)
 	return m(pack), err
 }
