@@ -50,8 +50,8 @@ type RequestSend struct {
 type ResultPackage struct {
 	document     *traverse.HTMLDocument
 	save         *RequestResult
-	scrape       func(url string)
-	scrapeStruct func(rs *RequestSend)
+	scrape       func(url string) *RequestSend
+	scrapeStruct func(rs *RequestSend) *RequestSend
 }
 
 type RequestCollection struct {
@@ -159,7 +159,7 @@ func (ri *RequestItem) CancelRequest() {
 	cancel()
 }
 
-func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, scrape func(url string), scrapeStruct func(rs *RequestSend)) ResultPackage {
+func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, scrape func(url string) *RequestSend, scrapeStruct func(rs *RequestSend) *RequestSend) ResultPackage {
 	rp.document = doc
 	rp.save = save
 	rp.scrape = scrape

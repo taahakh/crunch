@@ -131,6 +131,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	go func() {
 		wg.Wait()
 		*complete <- rj.Identity
+		rj.Done = true
 		return
 	}()
 
@@ -160,6 +161,7 @@ func CompleteSession(rj *RequestCollection) {
 		wg.Wait()
 		*complete <- rj.Identity
 		end <- struct{}{}
+		rj.Done = true
 		return
 	}()
 
@@ -250,6 +252,7 @@ func Simple(rc *RequestCollection) {
 		wg.Wait()
 		finish <- struct{}{}
 		*complete <- rc.Identity
+		rc.Done = true
 		return
 	}()
 
