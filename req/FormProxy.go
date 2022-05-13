@@ -69,7 +69,8 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	complete := rj.Complete
 
 	cClient := 0
-	cDone := len(rj.RJ.Links)
+	// cDone := len(rj.RJ.Links)
+	cDone := len(rj.RS)
 	cHeader := 0
 
 	q := Queue{}
@@ -235,7 +236,7 @@ func Simple(rc *RequestCollection) {
 	// defer rc.SignalFinish()
 
 	var wg sync.WaitGroup
-	// RETRY has NO functionality
+	// RETRY has NO functionality, only for new scraping calls
 	// We need to assign length so all the retries can delegated over here
 	retry := make(chan *RequestSend)
 	// retry := make(chan *RequestSend, len(rc.RS))

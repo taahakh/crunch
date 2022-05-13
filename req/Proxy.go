@@ -235,7 +235,7 @@ func SimpleProxySetup(
 
 	rj := &RequestJar{
 		Clients: c,
-		Links:   ri,
+		// Links:   ri,
 	}
 
 	rs, err := CreateRequestSend(c, ri, retries, method)

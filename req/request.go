@@ -31,7 +31,7 @@ type RequestItem struct {
 // Groups of ips and links
 type RequestJar struct {
 	Clients []*http.Client
-	Links   []*RequestItem
+	// Links   []*RequestItem
 
 	// For mainly user-agents and also headers
 	Headers []*http.Header
@@ -48,8 +48,10 @@ type RequestSend struct {
 	// Failed ip request - how many more rotations to do
 	Retries int
 
-	// The method to use to scrape the webpage
-	// Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
+	/*
+		The method to use to scrape the webpage
+		Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
+	*/
 	Method func(rp ResultPackage) bool
 }
 
@@ -64,6 +66,8 @@ type ResultPackage struct {
 type RequestCollection struct {
 	// Finish tells us when we want the webscrape to end by no matter what
 	// Finish nil will go on until everything is finished
+
+	mu sync.Mutex
 
 	/* ---------- POOL Usage -------------- */
 	// Interaction with the pool allows safe cancellations and retrieval of collections when needed
@@ -97,26 +101,32 @@ type RequestCollection struct {
 	Result *RequestResult
 }
 
+func (rc *RequestCollection) AddRS(rs *RequestSend) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	rc.RS = append(rc.RS, rs)
+}
+
 // Clients are the proxies and engine
 // Links are the request we want to make
-func (rj *RequestJar) CreateHandle(rt int) []*RequestSend {
-	rs := make([]*RequestSend, 0, len(rj.Links))
-	counter := 0
-	for _, x := range rj.Links {
-		rs = append(rs, &RequestSend{
-			Request: x,
-			Client:  rj.Clients[counter],
-			// Retries: rj.Req[i].Retries,
-			Retries: rt,
-		})
-		counter++
-		if counter == len(rj.Clients) {
-			counter = 0
-		}
-	}
+// func (rj *RequestJar) CreateHandle(rt int) []*RequestSend {
+// 	rs := make([]*RequestSend, 0, len(rj.Links))
+// 	counter := 0
+// 	for _, x := range rj.Links {
+// 		rs = append(rs, &RequestSend{
+// 			Request: x,
+// 			Client:  rj.Clients[counter],
+// 			// Retries: rj.Req[i].Retries,
+// 			Retries: rt,
+// 		})
+// 		counter++
+// 		if counter == len(rj.Clients) {
+// 			counter = 0
+// 		}
+// 	}
 
-	return rs
-}
+// 	return rs
+// }
 
 func (rs *RequestSend) Decrement() {
 	rs.Retries--
@@ -174,6 +184,7 @@ func (ri *RequestItem) CancelRequest() {
 // 	// rp.scrapeStruct = scrapeStruct
 // 	return rp
 // }
+
 func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend) ResultPackage {
 	rp.document = doc
 	rp.save = save
