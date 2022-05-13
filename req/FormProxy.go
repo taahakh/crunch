@@ -19,6 +19,11 @@ const (
 	sleepTime                = 1000
 )
 
+type ContScrape interface {
+	AddRS(send ...*RequestSend)
+	GetRS() []*RequestSend
+}
+
 // type ResultPackage interface {
 // 	Document() *traverse.HTMLDocument
 // 	Save(obj interface{})
@@ -200,6 +205,12 @@ loop:
 	return
 }
 
+func addToRS(rc *RequestCollection, rs <-chan *RequestSend) {
+	for items := range rs {
+		rc.AddRS(items)
+	}
+}
+
 func completeCriterion(retry chan *RequestSend, rj *RequestCollection, result *RequestResult, cancel *chan struct{}, end *chan struct{}, wg *sync.WaitGroup) {
 	cHeader := 0
 	cClient := 0
@@ -293,9 +304,7 @@ func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan 
 
 // ----------------------------------------------------------
 
-func BatchWorker() {
-
-}
+func BatchWorker() {}
 
 // ----------------------------------------------------------
 

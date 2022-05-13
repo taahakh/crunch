@@ -122,7 +122,9 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 		}
 		val.Done = true
 		val.Cancel <- struct{}{}
-		for _, x := range val.RS {
+		// Safe access to the requestsend slice
+		items := val.GetRS()
+		for _, x := range items {
 			if x == nil {
 				continue
 			}

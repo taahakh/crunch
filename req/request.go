@@ -9,11 +9,6 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
-// var (
-// 	Scrape       func(url string) *RequestSend
-// 	ScrapeStruct func(rs *RequestSend) *RequestSend
-// )
-
 // Stores the results that have been successful
 type RequestResult struct {
 	// All successful requests and handled HTML's are stored here
@@ -59,8 +54,6 @@ type ResultPackage struct {
 	document *traverse.HTMLDocument
 	save     *RequestResult
 	channel  chan *RequestSend
-	// scrape       func(url []string) []*RequestSend
-	// scrapeStruct func(rs []*RequestSend) []*RequestSend
 }
 
 type RequestCollection struct {
@@ -94,39 +87,26 @@ type RequestCollection struct {
 
 	/* ---------- METHOD usage ------------ */
 	// All the information needed to send requests as well as all client information linked to the collection
-	// RequestJar needs to be MUTEXED
+	// RequestSend needs to be MUTEXED
 
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
 }
 
-func (rc *RequestCollection) AddRS(rs *RequestSend) {
+func (rc *RequestCollection) AddRS(send ...*RequestSend) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	rc.RS = append(rc.RS, rs)
+	for _, x := range send {
+		rc.RS = append(rc.RS, x)
+	}
 }
 
-// Clients are the proxies and engine
-// Links are the request we want to make
-// func (rj *RequestJar) CreateHandle(rt int) []*RequestSend {
-// 	rs := make([]*RequestSend, 0, len(rj.Links))
-// 	counter := 0
-// 	for _, x := range rj.Links {
-// 		rs = append(rs, &RequestSend{
-// 			Request: x,
-// 			Client:  rj.Clients[counter],
-// 			// Retries: rj.Req[i].Retries,
-// 			Retries: rt,
-// 		})
-// 		counter++
-// 		if counter == len(rj.Clients) {
-// 			counter = 0
-// 		}
-// 	}
-
-// 	return rs
-// }
+func (rc *RequestCollection) GetRS() []*RequestSend {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	return rc.RS
+}
 
 func (rs *RequestSend) Decrement() {
 	rs.Retries--
@@ -165,25 +145,10 @@ func (c *RequestResult) Count() int {
 	return c.counter
 }
 
-// func (r *RequestCollection) SignalFinish() {
-// 	fmt.Println("Signaled finish: ", r.Identity)
-// 	r.Done = true
-// 	*r.Notify <- r.Identity
-// }
-
 func (ri *RequestItem) CancelRequest() {
 	cancel := *ri.Cancel
 	cancel()
 }
-
-// func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend, scrape func(url []string) []*RequestSend, scrapeStruct func(rs []*RequestSend) []*RequestSend) ResultPackage {
-// 	rp.document = doc
-// 	rp.save = save
-// 	rp.channel = retry
-// 	// rp.scrape = scrape
-// 	// rp.scrapeStruct = scrapeStruct
-// 	return rp
-// }
 
 func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend) ResultPackage {
 	rp.document = doc
