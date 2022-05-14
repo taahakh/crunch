@@ -2,7 +2,6 @@ package req
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -25,8 +24,8 @@ type RequestItem struct {
 
 // Groups of ips and links
 type RequestJar struct {
+	// Clients
 	Clients []*http.Client
-	// Links   []*RequestItem
 
 	// For mainly user-agents and also headers
 	Headers []*http.Header
@@ -53,14 +52,19 @@ type RequestSend struct {
 type ResultPackage struct {
 	document *traverse.HTMLDocument
 	save     *RequestResult
-	channel  chan *RequestSend
+	ms       *MutexSend
+}
+
+type MutexSend struct {
+	mu     sync.Mutex
+	list   []*RequestSend
+	end    bool
+	scrape chan *RequestSend
 }
 
 type RequestCollection struct {
 	// Finish tells us when we want the webscrape to end by no matter what
 	// Finish nil will go on until everything is finished
-
-	mu sync.Mutex
 
 	/* ---------- POOL Usage -------------- */
 	// Interaction with the pool allows safe cancellations and retrieval of collections when needed
@@ -92,20 +96,57 @@ type RequestCollection struct {
 	RJ     *RequestJar
 	RS     []*RequestSend
 	Result *RequestResult
+	muxrs  *MutexSend
 }
 
-func (rc *RequestCollection) AddRS(send ...*RequestSend) {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-	for _, x := range send {
-		rc.RS = append(rc.RS, x)
+func (rc *RequestCollection) SetMuxSend() {
+	if rc.muxrs == nil {
+		rc.muxrs = &MutexSend{
+			mu:   sync.Mutex{},
+			end:  false,
+			list: make([]*RequestSend, 0),
+		}
 	}
 }
 
-func (rc *RequestCollection) GetRS() []*RequestSend {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-	return rc.RS
+func (rc *RequestCollection) GetMuxSend() *MutexSend {
+	return rc.muxrs
+}
+
+func (ms *MutexSend) New(scr chan *RequestSend) *MutexSend {
+
+	return &MutexSend{
+		mu:     sync.Mutex{},
+		end:    false,
+		list:   make([]*RequestSend, 0),
+		scrape: scr,
+	}
+
+}
+
+func (ms *MutexSend) SetChannel(scr chan *RequestSend) {
+	ms.scrape = scr
+}
+
+func (ms *MutexSend) Add(items ...*RequestSend) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.list = append(ms.list, items...)
+	if !ms.end {
+		for _, x := range items {
+			ms.scrape <- x
+		}
+	}
+}
+
+func (ms *MutexSend) End() {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	ms.end = true
+	for _, x := range ms.list {
+		c := *x.Request.Cancel
+		c()
+	}
 }
 
 func (rs *RequestSend) Decrement() {
@@ -150,12 +191,11 @@ func (ri *RequestItem) CancelRequest() {
 	cancel()
 }
 
-func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, retry chan *RequestSend) ResultPackage {
+func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, mutexSend *MutexSend) ResultPackage {
 	rp.document = doc
 	rp.save = save
-	rp.channel = retry
-	// rp.scrape = scrape
-	// rp.scrapeStruct = scrapeStruct
+	// rp.channel = retry
+	rp.ms = mutexSend
 	return rp
 }
 
@@ -167,18 +207,12 @@ func (rp ResultPackage) Save(item interface{}) {
 	rp.save.Add(item)
 }
 
-func (rp ResultPackage) Scrape(url []string) {
-	// items := Scrape(url)
-	// for _, x := range items {
-	// 	rp.channel <- x
-	// }
-	fmt.Println("Scrape part")
+func (rp ResultPackage) Scrape(m func(rp ResultPackage) bool, url ...string) {
+	rp.ms.Add(ItemToSend(CreateLinkRequestContext(ConvertToURL(url)), m)...)
 }
 
-func (rp ResultPackage) ScrapeStruct(rs []*RequestSend) {
-	for _, x := range rs {
-		rp.channel <- x
-	}
+func (rp ResultPackage) ScrapeStruct(rs ...*RequestSend) {
+	rp.ms.Add(rs...)
 }
 
 func Scrape(url []string) []*RequestSend {

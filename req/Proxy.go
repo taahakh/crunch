@@ -17,10 +17,6 @@ const (
 	UntilComplete = ""
 )
 
-type IP interface {
-	List() []string
-}
-
 func GenodeRead(csv [][]string, protocol string) []string {
 	var ipList []string
 
@@ -29,6 +25,19 @@ func GenodeRead(csv [][]string, protocol string) []string {
 			continue
 		}
 		ipList = append(ipList, protocol+"://"+csv[i][0]+":"+csv[i][7])
+	}
+
+	return ipList
+}
+
+func SingleList(csv [][]string, protocol string) []string {
+	var ipList []string
+
+	for i := range csv {
+		if i == 0 {
+			continue
+		}
+		ipList = append(ipList, protocol+"://"+csv[i][0])
 	}
 
 	return ipList
@@ -118,6 +127,34 @@ func ConvertToURL(c []string) []*url.URL {
 	return urls
 }
 
+func CreateRequestItem(link string) *RequestItem {
+	x, err := url.Parse(link)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, "GET", x.String(), nil)
+
+	if err != nil {
+		log.Println("CreateLinkRequestContext: Failed")
+	}
+
+	return &RequestItem{
+		Request: req,
+		Cancel:  &cancel,
+	}
+}
+
+func ItemToSend(items []*RequestItem, m func(rp ResultPackage) bool) []*RequestSend {
+	send := make([]*RequestSend, 0, len(items))
+	for _, x := range items {
+		send = append(send, &RequestSend{
+			Request: x,
+			Retries: 1,
+			Method:  m,
+		})
+	}
+	return send
+}
+
 func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -127,12 +164,13 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 	return req
 }
 
-// func SimpleSetup(urls []string, timeout time.Duration, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
+// func SimpleSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
 // 	rs := make([]*RequestSend, 0, len(urls))
 // 	req := ConvertToURL(urls)
 
-// 	ri := CreateLinkRequestContext(req)
+// ri := CreateLinkRequestContext(req)
 // 	for _, x := range ri {
+
 // 		rs = append(rs, &RequestSend{
 // 			Request: x,
 // 			Method:  method,
@@ -144,12 +182,25 @@ func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
 // 	}
 // }
 
-func SimpleSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
+func SimpleNoContextSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
 	rs := make([]*RequestSend, 0, len(urls))
 	req := ConvertToURL(urls)
 
 	ri := CreateLinkRequestContext(req)
+	// for _, x := range req {
 	for _, x := range ri {
+		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		// reqe, err := http.NewRequestWithContext(ctx, http.MethodGet, x.String(), nil)
+
+		// if err != nil {
+		// 	log.Println("Couldn't create request with context")
+		// }
+
+		// ri := &RequestItem{
+		// 	Request: reqe,
+		// 	Cancel:  &cancel,
+		// }
+
 		rs = append(rs, &RequestSend{
 			Request: x,
 			Method:  method,
@@ -160,50 +211,6 @@ func SimpleSetup(urls []string, timeout time.Duration, method func(rp ResultPack
 		RS: rs,
 	}
 }
-
-// func SimpleProxySetup(
-// 	proxy []string,
-// 	urls []string,
-// 	headers []*http.Header,
-// 	retries int,
-// 	timeout time.Duration,
-// 	method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) *RequestCollection {
-
-// 	var ri []*RequestItem
-
-// 	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
-// 		return nil
-// 	}
-
-// 	req := ConvertToURL(urls)
-// 	cli := ConvertToURL(proxy)
-
-// 	ri = CreateLinkRequestContext(req)
-// 	c := CreateProxyClient(cli, timeout)
-
-// 	if headers != nil {
-// 		req, err := ApplyHeadersRI(ri, headers)
-// 		if err != nil {
-// 			log.Println("Header error")
-// 		}
-// 		ri = req
-// 	}
-
-// 	rj := &RequestJar{
-// 		Clients: c,
-// 		Links:   ri,
-// 	}
-
-// 	rs, err := CreateRequestSend(c, ri, retries, method)
-// 	if err != nil {
-// 		panic("NICE")
-// 	}
-
-// 	return &RequestCollection{
-// 		RJ: rj,
-// 		RS: rs,
-// 	}
-// }
 
 func SimpleProxySetup(
 	proxy []string,

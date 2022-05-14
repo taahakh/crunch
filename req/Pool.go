@@ -53,7 +53,7 @@ func (p *Pool) New(name string, settings PoolSettings) {
 	p.collections = make(map[string]*RequestCollection, 0)
 	p.finished = make(map[string]struct{}, 0)
 	p.close = make(chan struct{})
-	// p.end = make(chan string)
+	// p.complete = make(chan string, 1)
 	p.complete = make(chan string)
 	go p.collector(settings)
 }
@@ -64,10 +64,10 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
-		// rc.Notify = &p.end
 		rc.Complete = &p.complete
 		rc.Cancel = make(chan struct{})
 		rc.Result = &RequestResult{}
+		rc.SetMuxSend()
 		p.collections[col] = rc
 	} else {
 		log.Println("This collection ID already exists")
@@ -122,9 +122,12 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 		}
 		val.Done = true
 		val.Cancel <- struct{}{}
-		// Safe access to the requestsend slice
-		items := val.GetRS()
-		for _, x := range items {
+
+		// Stops requests from occuring via mutexed RequestSend
+		// Saving of information will still occur
+		go val.GetMuxSend().End()
+
+		for _, x := range val.RS {
 			if x == nil {
 				continue
 			}
@@ -176,7 +179,7 @@ func (p *Pool) NumOfRunning() int {
 	return counter
 }
 
-// Return how many operations have been completed
+// Return how many collections have been completed
 func (p *Pool) NumOfCompleted() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -218,6 +221,8 @@ func (p *Pool) collector(settings PoolSettings) {
 	for {
 		select {
 		case y := <-p.complete:
+			// fmt.Println("COMPLETED: ", y)
+			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			// if we want to do something when the collection has finished with the scraped data
 			p.mu.Lock()
 			p.finished[y] = struct{}{}
@@ -228,8 +233,11 @@ func (p *Pool) collector(settings PoolSettings) {
 				p.rem(y)
 			}
 			p.mu.Unlock()
+			break
 		case <-p.close:
 			return
+			// default:
+			// 	break
 		}
 	}
 }
@@ -245,11 +253,17 @@ func (p *Pool) Stored() int {
 	return len(p.collections)
 }
 
-func (p *Pool) Close() {
+func (p *Pool) Stop() {
 	for _, x := range p.collections {
 		p.CancelCollection(x.Identity)
 	}
-	time.Sleep(time.Millisecond * 500)
+}
+
+func (p *Pool) Close() {
+	p.Stop()
+	// time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Second * 30)
+
 	// Closing collector
 	p.close <- struct{}{}
 	return

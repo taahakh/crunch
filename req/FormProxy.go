@@ -19,18 +19,6 @@ const (
 	sleepTime                = 1000
 )
 
-type ContScrape interface {
-	AddRS(send ...*RequestSend)
-	GetRS() []*RequestSend
-}
-
-// type ResultPackage interface {
-// 	Document() *traverse.HTMLDocument
-// 	Save(obj interface{})
-// 	Scrape(url string)
-// 	ScrapeStruct(rs *RequestSend)
-// }
-
 // ---------------------------------------------------------------------------------
 
 // Handles retries, individual request timeouts and cancellations,
@@ -40,9 +28,7 @@ type ContScrape interface {
 
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
-func Batch(rj *RequestCollection, size int, gap string) {
-	// defer rj.SignalFinish()
-
+func Batch(rc *RequestCollection, size int, gap string) {
 	var dur time.Duration
 
 	// check if time duration is empty
@@ -62,24 +48,27 @@ func Batch(rj *RequestCollection, size int, gap string) {
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, size)
 	// Scrape results
-	result := rj.Result
+	result := rc.Result
 	// safe := rj.Safe
 	// The pool telling the collection to end all requests
-	cancel := rj.Cancel
+	cancel := rc.Cancel
 	// End the goroutine where we do requests.
 	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
 	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 	end := make(chan struct{})
-	complete := rj.Complete
+	complete := rc.Complete
 
 	cClient := 0
 	// cDone := len(rj.RJ.Links)
-	cDone := len(rj.RS)
+	cDone := len(rc.RS)
 	cHeader := 0
 
+	ms := rc.muxrs
+	ms.SetChannel(retry)
+
 	q := Queue{}
-	q.Make(rj.RS)
+	q.Make(rc.RS)
 
 	wg.Add(1)
 
@@ -96,7 +85,7 @@ func Batch(rj *RequestCollection, size int, gap string) {
 						continue
 					}
 					wg.Add(1)
-					go HandleRequest(item, retry, result, &wg)
+					go HandleRequest(item, retry, result, ms, &wg)
 				}
 
 				time.Sleep(dur)
@@ -112,12 +101,13 @@ func Batch(rj *RequestCollection, size int, gap string) {
 			select {
 			case item := <-retry:
 				if item.Caught {
-					cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+					cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
+					item.Caught = false
 					q.Add(item)
 				} else if item.Retries == 0 {
 					cDone--
 				} else {
-					cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
+					cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
 					q.Add(item)
 				}
 				break
@@ -137,8 +127,8 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 	go func() {
 		wg.Wait()
-		*complete <- rj.Identity
-		rj.Done = true
+		*complete <- rc.Identity
+		rc.Done = true
 		return
 	}()
 
@@ -147,28 +137,32 @@ func Batch(rj *RequestCollection, size int, gap string) {
 
 // ----------------------------------------------------------
 
-func CompleteSession(rj *RequestCollection) {
+func CompleteSession(rc *RequestCollection) {
 
 	var wg sync.WaitGroup
 	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
-	result := rj.Result                  // Scrape results
-	cancel := rj.Cancel
-	complete := rj.Complete
+	result := rc.Result                  // Scrape results
+	cancel := rc.Cancel
+	complete := rc.Complete
 	end := make(chan struct{})
 
 	cClient := 0
 	cHeader := 0
 
-	for _, x := range rj.RS {
+	ms := rc.muxrs
+	ms.SetChannel(retry)
+
+	for _, x := range rc.RS {
 		wg.Add(1)
-		go HandleRequest(x, retry, result, &wg)
+		go HandleRequest(x, retry, result, ms, &wg)
 	}
 
 	go func() {
 		wg.Wait()
-		*complete <- rj.Identity
-		end <- struct{}{}
-		rj.Done = true
+		*complete <- rc.Identity
+		// end <- struct{}{}
+		close(end)
+		rc.Done = true
 		return
 	}()
 
@@ -179,18 +173,18 @@ loop:
 		case item := <-retry:
 			switch {
 			case item.Caught:
-				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
 				wg.Add(1)
-				go HandleRequest(item, retry, result, &wg)
+				cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
+				item.Caught = false
+				go HandleRequest(item, retry, result, ms, &wg)
 				break
 			case item.Retries == 0:
 				break
 			default:
-				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
 				wg.Add(1)
-				go HandleRequest(item, retry, result, &wg)
+				cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
+				go HandleRequest(item, retry, result, ms, &wg)
 			}
-
 			break
 		case <-cancel:
 			break loop
@@ -205,66 +199,67 @@ loop:
 	return
 }
 
-func addToRS(rc *RequestCollection, rs <-chan *RequestSend) {
-	for items := range rs {
-		rc.AddRS(items)
-	}
-}
+// func addToRS(rc *RequestCollection, rs <-chan *RequestSend) {
+// 	for items := range rs {
+// 		rc.AddRS(items)
+// 	}
+// }
 
-func completeCriterion(retry chan *RequestSend, rj *RequestCollection, result *RequestResult, cancel *chan struct{}, end *chan struct{}, wg *sync.WaitGroup) {
-	cHeader := 0
-	cClient := 0
-	for {
-		select {
-		// Handling retries
-		case item := <-retry:
-			switch {
-			case item.Caught:
-				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
-				wg.Add(1)
-				go HandleRequest(item, retry, result, wg)
-				break
-			case item.Retries == 0:
-				break
-			default:
-				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
-				wg.Add(1)
-				go HandleRequest(item, retry, result, wg)
-			}
+// func completeCriterion(retry chan *RequestSend, rj *RequestCollection, result *RequestResult, cancel *chan struct{}, end *chan struct{}, wg *sync.WaitGroup) {
+// 	cHeader := 0
+// 	cClient := 0
+// 	for {
+// 		select {
+// 		// Handling retries
+// 		case item := <-retry:
+// 			switch {
+// 			case item.Caught:
+// 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
+// 				wg.Add(1)
+// 				go HandleRequest(item, retry, result, wg)
+// 				break
+// 			case item.Retries == 0:
+// 				break
+// 			default:
+// 				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
+// 				wg.Add(1)
+// 				go HandleRequest(item, retry, result, wg)
+// 			}
 
-			break
-		case <-*cancel:
-			return
-		case <-*end:
-			return
-		}
-	}
-}
+// 			break
+// 		case <-*cancel:
+// 			return
+// 		case <-*end:
+// 			return
+// 		}
+// 	}
+// }
 
 // ----------------------------------------------------------
 
 func Simple(rc *RequestCollection) {
-	// defer rc.SignalFinish()
-
 	var wg sync.WaitGroup
-	// RETRY has NO functionality, only for new scraping calls
-	// We need to assign length so all the retries can delegated over here
+
+	// Retry functionality is set to continue scraping new calls and NOT failed calls
+	// However its can be setup in any way
 	retry := make(chan *RequestSend)
-	// retry := make(chan *RequestSend, len(rc.RS))
 	result := rc.Result
 	cancel := rc.Cancel
 	complete := rc.Complete
 	finish := make(chan struct{})
 
+	ms := rc.muxrs
+	ms.SetChannel(retry)
+
 	for _, x := range rc.RS {
 		wg.Add(1)
-		go HandleRequest(x, retry, result, &wg)
-		// go HandleRequest(x, nil, result, &wg)
+		go HandleRequest(x, retry, result, ms, &wg)
+
 	}
 
 	go func() {
 		wg.Wait()
-		finish <- struct{}{}
+		close(finish)
 		*complete <- rc.Identity
 		rc.Done = true
 		return
@@ -279,12 +274,10 @@ loop:
 			break loop
 		case item := <-retry:
 			wg.Add(1)
-			// go HandleRequest(x, retry, result, &wg)
-			go HandleRequest(item, retry, result, &wg)
+			go HandleRequest(item, retry, result, ms, &wg)
 			break
 		}
 	}
-	// simpleCriterion(&cancel, &finish, retry)
 
 	return
 }
@@ -301,6 +294,47 @@ func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan 
 		}
 	}
 }
+
+/*Worker Groups*/
+
+// func Worker(jobs <-chan *RequestSend, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
+// 	for {
+// 		select {
+// 		case items := <-jobs:
+// 			wg.Add(1)
+// 			go HandleRequest(items, retry, rr, wg)
+// 			break
+// 		case <-cancel:
+// 			return
+// 		}
+// 	}
+// }
+
+// func QueuedWorker(jobs <-chan *RequestSend, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
+// 	for {
+// 		select {
+// 		case items := <-jobs:
+// 			wg.Add(1)
+// 			HandleRequest(items, retry, rr, wg)
+// 			break
+// 		case <-cancel:
+// 			return
+// 		}
+// 	}
+// }
+
+/*Cleaners*/
+
+func CleanRS(retry chan *RequestSend) {
+	for items := range retry {
+		fmt.Println(items)
+	}
+	return
+}
+
+/*QueuedSimple*/
+
+/*SpillSimple*/
 
 // ----------------------------------------------------------
 
@@ -331,7 +365,7 @@ func noClientProcess(request *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, wg *sync.WaitGroup) {
+func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
 
 	var resp *http.Response
 	var err error
@@ -356,8 +390,7 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
-	// data, err := RunScrape(resp, rr, req.Method)
-	data, err := RunScrape(resp, rr, retry, req.Method)
+	data, err := RunScrape(resp, rr, ms, req.Method)
 	if err != nil {
 		log.Println("Couldn't read body")
 		return
@@ -404,27 +437,8 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 
 // if true, it means that the scrape was unsuccessful
 // if false, scrape successful
-// it is up toxw the user to add their scraped data into RequestResult
 
-// func RunScrape(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
-// 	defer r.Body.Close()
-// 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
-// 	if err != nil {
-// 		log.Println("Failed utf8set")
-// 		return false, err
-// 	}
-// 	bytes, err := ioutil.ReadAll(utf8set)
-// 	if err != nil {
-// 		log.Println("Failed ioutil")
-// 		return false, err
-// 	}
-
-// 	item := traverse.HTMLDocBytes(&bytes)
-
-// 	return m(&item, res), err
-// }
-
-func RunScrape(r *http.Response, res *RequestResult, retry chan *RequestSend, m func(rp ResultPackage) bool) (bool, error) {
+func RunScrape(r *http.Response, res *RequestResult, ms *MutexSend, m func(rp ResultPackage) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
@@ -439,7 +453,9 @@ func RunScrape(r *http.Response, res *RequestResult, retry chan *RequestSend, m 
 
 	item := traverse.HTMLDocBytes(&bytes)
 	pack := ResultPackage{}
-	// pack = pack.New(&item, res, retry, nil, nil)
-	pack = pack.New(&item, res, retry)
+	pack = pack.New(&item, res, ms)
+	if m == nil {
+		return true, err
+	}
 	return m(pack), err
 }
