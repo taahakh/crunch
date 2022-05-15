@@ -2,6 +2,7 @@ package req
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -259,13 +260,52 @@ func (p *Pool) Stop() {
 	}
 }
 
+// UNSAFE - implemented safely
+func (p *Pool) completionChecker() bool {
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
+	count := 0
+	for _, x := range p.collections {
+		if x.Done {
+			count++
+		}
+	}
+
+	fmt.Println("Count: ", count)
+	fmt.Println("Finished: ", len(p.finished))
+
+	if count == len(p.finished) {
+		return true
+	}
+
+	return false
+}
+
 func (p *Pool) Close() {
 	p.Stop()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
+	// if !p.completionChecker() {
+	go func() {
+		for {
+			// time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Second * 5)
+
+			if p.completionChecker() {
+				p.close <- struct{}{}
+				break
+			}
+			fmt.Println("NOT COMPLETYR")
+		}
+		return
+	}()
+
+	// }
 	// time.Sleep(time.Millisecond * 500)
-	time.Sleep(time.Second * 30)
+	// time.Sleep(time.Second * 30)
 
 	// Closing collector
-	p.close <- struct{}{}
+	// p.close <- struct{}{}
 	return
 }
 
