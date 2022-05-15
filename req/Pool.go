@@ -2,7 +2,6 @@ package req
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -46,6 +45,9 @@ type Pool struct {
 
 	// Signal to close the Garbage collector and the pool. Closing pool will come later
 	close chan struct{}
+
+	// Create deadlock if we try to close again even though it's already closed
+	closed bool
 }
 
 // Setting an identifier for our pool
@@ -285,8 +287,8 @@ func (p *Pool) CompletionChecker() bool {
 		}
 	}
 
-	fmt.Println("Count: ", count)
-	fmt.Println("Finished: ", len(p.finished))
+	// fmt.Println("Count: ", count)
+	// fmt.Println("Finished: ", len(p.finished))
 
 	if count == len(p.finished) {
 		return true
@@ -296,30 +298,23 @@ func (p *Pool) CompletionChecker() bool {
 }
 
 func (p *Pool) Close() {
+
+	if p.closed {
+		return
+	}
+
 	p.Stop()
-	// p.mu.Lock()
-	// defer p.mu.Unlock()
-	// if !p.completionChecker() {
-	// go func() {
-	// 	for {
-	// 		// time.Sleep(time.Millisecond * 500)
-	// 		time.Sleep(time.Second * 5)
 
-	// 		if p.completionChecker() {
-	// 			p.close <- struct{}{}
-	// 			break
-	// 		}
-	// 		fmt.Println("NOT COMPLETYR")
-	// 	}
-	// 	return
-	// }()
+	for !p.CompletionChecker() {
+		time.Sleep(time.Second * 1)
+	}
 
-	// }
-	// time.Sleep(time.Millisecond * 500)
-	time.Sleep(time.Second * 10)
-	p.CompletionChecker()
+	// fmt.Println("Finished checking -> equls ")
+
 	// Closing collector
 	p.close <- struct{}{}
+
+	p.closed = true
 	return
 }
 

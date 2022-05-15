@@ -85,7 +85,7 @@ func Batch(rc *RequestCollection, size int, gap string) {
 						continue
 					}
 					wg.Add(1)
-					go HandleRequest(item, retry, result, ms, &wg)
+					go HandleRequest(true, item, retry, result, ms, &wg)
 				}
 
 				time.Sleep(dur)
@@ -154,7 +154,7 @@ func CompleteSession(rc *RequestCollection) {
 
 	for _, x := range rc.RS {
 		wg.Add(1)
-		go HandleRequest(x, retry, result, ms, &wg)
+		go HandleRequest(true, x, retry, result, ms, &wg)
 	}
 
 	go func() {
@@ -176,14 +176,14 @@ loop:
 				wg.Add(1)
 				cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
 				item.Caught = false
-				go HandleRequest(item, retry, result, ms, &wg)
+				go HandleRequest(true, item, retry, result, ms, &wg)
 				break
 			case item.Retries == 0:
 				break
 			default:
 				wg.Add(1)
 				cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
-				go HandleRequest(item, retry, result, ms, &wg)
+				go HandleRequest(true, item, retry, result, ms, &wg)
 			}
 			break
 		case <-cancel:
@@ -192,8 +192,6 @@ loop:
 			break loop
 		}
 	}
-
-	time.Sleep(time.Second * 10)
 
 	// completeCriterion(retry, rj, result, &cancel, &end, &wg)
 
@@ -255,7 +253,7 @@ func Simple(rc *RequestCollection) {
 
 	for _, x := range rc.RS {
 		wg.Add(1)
-		go HandleRequest(x, retry, result, ms, &wg)
+		go HandleRequest(false, x, retry, result, ms, &wg)
 
 	}
 
@@ -276,12 +274,16 @@ loop:
 			break loop
 		case item := <-retry:
 			wg.Add(1)
-			go HandleRequest(item, retry, result, ms, &wg)
+			go HandleRequest(false, item, retry, result, ms, &wg)
 			break
 		}
 	}
 
 	return
+}
+
+func simpleCriteriaCheck(rc *RequestCollection) {
+
 }
 
 func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan *RequestSend) {
@@ -356,8 +358,15 @@ func clientProcess(client *http.Client, request *http.Request, req *RequestSend,
 	return resp, nil
 }
 
-func noClientProcess(request *http.Request) (*http.Response, error) {
-	cli := http.Client{}
+func noClientProcess(client *http.Client, request *http.Request) (*http.Response, error) {
+	var cli http.Client
+
+	if client != nil {
+		cli = *client
+	} else {
+		cli = http.Client{}
+	}
+
 	resp, err := cli.Do(request)
 
 	if err != nil {
@@ -367,7 +376,7 @@ func noClientProcess(request *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
+func HandleRequest(enforce bool, req *RequestSend, retry chan *RequestSend, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
 
 	var resp *http.Response
 	var err error
@@ -378,10 +387,10 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 	client := req.Client
 	request := req.Request.Request
 
-	if client != nil {
+	if enforce {
 		resp, err = clientProcess(client, request, req, retry)
 	} else {
-		resp, err = noClientProcess(request)
+		resp, err = noClientProcess(client, request)
 	}
 
 	if err != nil {
@@ -398,8 +407,8 @@ func HandleRequest(req *RequestSend, retry chan *RequestSend, rr *RequestResult,
 		return
 	}
 
-	// we were requesting with no proxy so no new client was needed so we are finished here
-	if client == nil {
+	// if we are not enforcing, we can leave right now
+	if !enforce {
 		return
 	}
 
