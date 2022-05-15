@@ -121,7 +121,9 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 		if val.Done {
 			return val.Result, nil
 		}
+		// fmt.Println("before: ", val.Done)
 		val.Done = true
+		// fmt.Println("before: ", val.Done)
 		val.Cancel <- struct{}{}
 
 		// Stops requests from occuring via mutexed RequestSend
@@ -201,6 +203,18 @@ func (p *Pool) AmIFinished(id string) bool {
 	return ok
 }
 
+func (p *Pool) AmIDone(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if col, ok := p.collections[id]; ok {
+		if col.Done {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // Run scrape
 func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
@@ -231,7 +245,7 @@ func (p *Pool) collector(settings PoolSettings) {
 				settings.IncomingCompletedCollections(p.collections[y])
 				// removes collection from the pool. The name will still exist in finished array
 				// but gone for good
-				p.rem(y)
+				// p.rem(y)
 			}
 			p.mu.Unlock()
 			break
@@ -261,7 +275,7 @@ func (p *Pool) Stop() {
 }
 
 // UNSAFE - implemented safely
-func (p *Pool) completionChecker() bool {
+func (p *Pool) CompletionChecker() bool {
 	// p.mu.Lock()
 	// defer p.mu.Unlock()
 	count := 0
@@ -286,26 +300,26 @@ func (p *Pool) Close() {
 	// p.mu.Lock()
 	// defer p.mu.Unlock()
 	// if !p.completionChecker() {
-	go func() {
-		for {
-			// time.Sleep(time.Millisecond * 500)
-			time.Sleep(time.Second * 5)
+	// go func() {
+	// 	for {
+	// 		// time.Sleep(time.Millisecond * 500)
+	// 		time.Sleep(time.Second * 5)
 
-			if p.completionChecker() {
-				p.close <- struct{}{}
-				break
-			}
-			fmt.Println("NOT COMPLETYR")
-		}
-		return
-	}()
+	// 		if p.completionChecker() {
+	// 			p.close <- struct{}{}
+	// 			break
+	// 		}
+	// 		fmt.Println("NOT COMPLETYR")
+	// 	}
+	// 	return
+	// }()
 
 	// }
 	// time.Sleep(time.Millisecond * 500)
-	// time.Sleep(time.Second * 30)
-
+	time.Sleep(time.Second * 10)
+	p.CompletionChecker()
 	// Closing collector
-	// p.close <- struct{}{}
+	p.close <- struct{}{}
 	return
 }
 

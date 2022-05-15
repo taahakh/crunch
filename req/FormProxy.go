@@ -162,7 +162,7 @@ func CompleteSession(rc *RequestCollection) {
 		*complete <- rc.Identity
 		// end <- struct{}{}
 		close(end)
-		rc.Done = true
+		// rc.Done = true
 		return
 	}()
 
@@ -192,6 +192,8 @@ loop:
 			break loop
 		}
 	}
+
+	time.Sleep(time.Second * 10)
 
 	// completeCriterion(retry, rj, result, &cancel, &end, &wg)
 
