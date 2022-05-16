@@ -301,31 +301,31 @@ func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan 
 
 /*Worker Groups*/
 
-// func Worker(jobs <-chan *RequestSend, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
-// 	for {
-// 		select {
-// 		case items := <-jobs:
-// 			wg.Add(1)
-// 			go HandleRequest(items, retry, rr, wg)
-// 			break
-// 		case <-cancel:
-// 			return
-// 		}
-// 	}
-// }
+func Worker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
+	for {
+		select {
+		case items := <-jobs:
+			wg.Add(1)
+			go HandleRequest(enforce, items, retry, rr, ms, wg)
+			break
+		case <-cancel:
+			return
+		}
+	}
+}
 
-// func QueuedWorker(jobs <-chan *RequestSend, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, wg *sync.WaitGroup) {
-// 	for {
-// 		select {
-// 		case items := <-jobs:
-// 			wg.Add(1)
-// 			HandleRequest(items, retry, rr, wg)
-// 			break
-// 		case <-cancel:
-// 			return
-// 		}
-// 	}
-// }
+func QueuedWorker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
+	for {
+		select {
+		case items := <-jobs:
+			wg.Add(1)
+			HandleRequest(enforce, items, retry, rr, ms, wg)
+			break
+		case <-cancel:
+			return
+		}
+	}
+}
 
 /*Cleaners*/
 
