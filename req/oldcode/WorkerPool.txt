@@ -1,0 +1,67 @@
+package req
+
+import (
+	"sync"
+)
+
+type WorkerPool struct {
+	mu sync.RWMutex
+
+	name string
+
+	workers       <-chan *RequestSend
+	queuedWorkers <-chan *RequestSend
+
+	// Syncs and allow closures of all workers all workers/handlers
+	// number of cancel singals = number of workers
+	cancel   chan struct{}
+	nWorkers int
+
+	// Sends all failed scrapes/request to the retry handler(s)
+	retry chan *RequestSend
+
+	/* Retry information */
+
+	jar    *RequestJar
+	result *RequestResult
+	muxrs  *MutexSend
+	key    sync.Mutex
+	// cqClients *CQueue
+	// cqHeaders *CQueue
+}
+
+func (wp *WorkerPool) New(name string, jar *RequestJar) {
+	wp.mu = sync.RWMutex{}
+	wp.name = name
+	wp.workers = make(<-chan *RequestSend)
+	wp.queuedWorkers = make(<-chan *RequestSend)
+	wp.cancel = make(chan struct{})
+	wp.nWorkers = 0
+	wp.retry = make(chan *RequestSend)
+	// wp.cqClients = &CQueue{}
+	// wp.cqClients.New(len(jar.Clients))
+	// wp.cqHeaders = &CQueue{}
+	// wp.cqHeaders.New(len(jar.Headers))
+}
+
+func (wp *WorkerPool) retryHandler() {
+
+}
+
+func (wp *WorkerPool) AddRetryHandler() {
+
+}
+
+func (wp *WorkerPool) AddQueue() {
+	wp.nWorkers++
+	go QueuedWorker(wp.queuedWorkers, true, wp.retry, wp.cancel, wp.result, wp.muxrs, nil)
+}
+
+func (wp *WorkerPool) AddWorker() {
+	wp.nWorkers++
+	go Worker(wp.queuedWorkers, true, wp.retry, wp.cancel, wp.result, wp.muxrs, nil)
+}
+
+func (wp *WorkerPool) End() {
+	close(wp.cancel)
+}

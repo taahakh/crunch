@@ -287,9 +287,6 @@ func (p *Pool) CompletionChecker() bool {
 		}
 	}
 
-	// fmt.Println("Count: ", count)
-	// fmt.Println("Finished: ", len(p.finished))
-
 	if count == len(p.finished) {
 		return true
 	}

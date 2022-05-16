@@ -160,7 +160,6 @@ func CompleteSession(rc *RequestCollection) {
 	go func() {
 		wg.Wait()
 		*complete <- rc.Identity
-		// end <- struct{}{}
 		close(end)
 		// rc.Done = true
 		return
@@ -198,42 +197,6 @@ loop:
 	// This closes goroutine if it is run as a goroutine
 	return
 }
-
-// func addToRS(rc *RequestCollection, rs <-chan *RequestSend) {
-// 	for items := range rs {
-// 		rc.AddRS(items)
-// 	}
-// }
-
-// func completeCriterion(retry chan *RequestSend, rj *RequestCollection, result *RequestResult, cancel *chan struct{}, end *chan struct{}, wg *sync.WaitGroup) {
-// 	cHeader := 0
-// 	cClient := 0
-// 	for {
-// 		select {
-// 		// Handling retries
-// 		case item := <-retry:
-// 			switch {
-// 			case item.Caught:
-// 				cHeader = changeHeaders(item.Request.Request, rj.RJ, cHeader)
-// 				wg.Add(1)
-// 				go HandleRequest(item, retry, result, wg)
-// 				break
-// 			case item.Retries == 0:
-// 				break
-// 			default:
-// 				cClient = changeClient(item.Client, rj.RJ.Clients, cClient)
-// 				wg.Add(1)
-// 				go HandleRequest(item, retry, result, wg)
-// 			}
-
-// 			break
-// 		case <-*cancel:
-// 			return
-// 		case <-*end:
-// 			return
-// 		}
-// 	}
-// }
 
 // ----------------------------------------------------------
 
@@ -282,67 +245,7 @@ loop:
 	return
 }
 
-func simpleCriteriaCheck(rc *RequestCollection) {
-
-}
-
-func simpleCriterion(cancel *chan struct{}, finish *chan struct{}, retry <-chan *RequestSend) {
-	for {
-		select {
-		case <-*cancel:
-			return
-		case <-*finish:
-			return
-		case <-retry:
-			break
-		}
-	}
-}
-
-/*Worker Groups*/
-
-func Worker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
-	for {
-		select {
-		case items := <-jobs:
-			wg.Add(1)
-			go HandleRequest(enforce, items, retry, rr, ms, wg)
-			break
-		case <-cancel:
-			return
-		}
-	}
-}
-
-func QueuedWorker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSend, cancel chan struct{}, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
-	for {
-		select {
-		case items := <-jobs:
-			wg.Add(1)
-			HandleRequest(enforce, items, retry, rr, ms, wg)
-			break
-		case <-cancel:
-			return
-		}
-	}
-}
-
-/*Cleaners*/
-
-func CleanRS(retry chan *RequestSend) {
-	for items := range retry {
-		fmt.Println(items)
-	}
-	return
-}
-
-/*QueuedSimple*/
-
-/*SpillSimple*/
-
 // ----------------------------------------------------------
-
-func BatchWorker() {}
 
 // ----------------------------------------------------------
 
@@ -382,7 +285,9 @@ func HandleRequest(enforce bool, req *RequestSend, retry chan *RequestSend, rr *
 	var err error
 
 	// wg.Add(1)
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	client := req.Client
 	request := req.Request.Request
