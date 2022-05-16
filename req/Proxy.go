@@ -187,23 +187,12 @@ func SimpleNoContextSetup(urls []string, timeout time.Duration, method func(rp R
 	req := ConvertToURL(urls)
 
 	ri := CreateLinkRequestContext(req)
-	// for _, x := range req {
 	for _, x := range ri {
-		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		// reqe, err := http.NewRequestWithContext(ctx, http.MethodGet, x.String(), nil)
-
-		// if err != nil {
-		// 	log.Println("Couldn't create request with context")
-		// }
-
-		// ri := &RequestItem{
-		// 	Request: reqe,
-		// 	Cancel:  &cancel,
-		// }
 
 		rs = append(rs, &RequestSend{
 			Request: x,
 			Method:  method,
+			Client:  &http.Client{},
 		})
 	}
 

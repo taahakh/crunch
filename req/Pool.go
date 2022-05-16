@@ -69,7 +69,11 @@ func (p *Pool) Add(col string, rc *RequestCollection) {
 		rc.Identity = col
 		rc.Complete = &p.complete
 		rc.Cancel = make(chan struct{})
-		rc.Result = &RequestResult{}
+		rc.Result = &RequestResult{
+			mu:      sync.Mutex{},
+			res:     make([]*interface{}, 0),
+			counter: 0,
+		}
 		rc.SetMuxSend()
 		p.collections[col] = rc
 	} else {
@@ -149,25 +153,26 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if val, ok := p.collections[id]; ok {
-		rr, err := p.popCompleted(val, id)
-		result := rr.Read()
-		p.rem(id)
-		return result, err
+	if p.isFinished(id) {
+		val, _ := p.collections[id]
+		result := val.Result.Read()
+		return result, nil
 	}
 
 	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
 }
 
-func (p *Pool) popCompleted(val *RequestCollection, id string) (*RequestResult, error) {
+func (p *Pool) isFinished(id string) bool {
+	return p.amIDone(id) && p.amIFinished(id)
+}
 
-	if val.Done {
-		rr := val.Result
-		p.rem(id)
-		return rr, nil
+func (p *Pool) BlockUntilComplete(id string) []*interface{} {
+	for {
+		res, err := p.PopIfCompleted(id)
+		if err == nil {
+			return res
+		}
 	}
-
-	return nil, errors.New("Could not pop")
 }
 
 // EXPENSIVE
@@ -198,16 +203,19 @@ func (p *Pool) GetFinishedList() map[string]struct{} {
 	return p.finished
 }
 
-func (p *Pool) AmIFinished(id string) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+// NO MUTEX.
+func (p *Pool) amIFinished(id string) bool {
 	_, ok := p.finished[id]
 	return ok
 }
 
-func (p *Pool) AmIDone(id string) bool {
+func (p *Pool) AmIFinished(id string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.amIFinished(id)
+}
+
+func (p *Pool) amIDone(id string) bool {
 	if col, ok := p.collections[id]; ok {
 		if col.Done {
 			return true
@@ -215,6 +223,12 @@ func (p *Pool) AmIDone(id string) bool {
 		return false
 	}
 	return false
+}
+
+func (p *Pool) AmIDone(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.amIDone(id)
 }
 
 // Run scrape

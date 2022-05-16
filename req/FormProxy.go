@@ -13,6 +13,10 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
+type er struct {
+	text string
+}
+
 // Proxy constants
 const (
 	ProxyConnectionPoolError = "ProxyConnection: Client Failed! [POOL]"
@@ -161,9 +165,11 @@ func CompleteSession(rc *RequestCollection) {
 		wg.Wait()
 		*complete <- rc.Identity
 		close(end)
-		// rc.Done = true
+		rc.Done = true
 		return
 	}()
+
+	fmt.Println("do i exisst: ", rc.Result)
 
 loop:
 	for {
@@ -224,9 +230,12 @@ func Simple(rc *RequestCollection) {
 		wg.Wait()
 		close(finish)
 		*complete <- rc.Identity
+		// CONFLICT
 		rc.Done = true
 		return
 	}()
+
+	fmt.Println("do i exisst: ", rc.Result)
 
 loop:
 	for {
@@ -241,6 +250,8 @@ loop:
 			break
 		}
 	}
+
+	fmt.Println("do i exisst: ", rc.Result)
 
 	return
 }
@@ -297,6 +308,8 @@ func HandleRequest(enforce bool, req *RequestSend, retry chan *RequestSend, rr *
 	} else {
 		resp, err = noClientProcess(client, request)
 	}
+
+	rr.Add(er{text: "Nice"})
 
 	if err != nil {
 		log.Println(err)

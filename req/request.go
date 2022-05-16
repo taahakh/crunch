@@ -121,7 +121,6 @@ func (ms *MutexSend) New(scr chan *RequestSend) *MutexSend {
 		list:   make([]*RequestSend, 0),
 		scrape: scr,
 	}
-
 }
 
 func (ms *MutexSend) SetChannel(scr chan *RequestSend) {
