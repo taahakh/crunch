@@ -9,12 +9,12 @@ import (
 
 type PoolLook interface {
 	Close()
-	Collections() map[string]*RequestCollection
+	Collections() map[string]*Collection
 }
 
 type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
-	IncomingCompletedCollections func(rc *RequestCollection)
+	IncomingCompletedCollections func(rc *Collection)
 	IncomingRequestCompletion    func(name string)
 	Cache                        Cache
 }
@@ -32,7 +32,7 @@ type Pool struct {
 	name string // Pool Name
 
 	// Active or soon to be active collections
-	collections map[string]*RequestCollection
+	collections map[string]*Collection
 
 	/* Pool Usage */
 
@@ -40,7 +40,7 @@ type Pool struct {
 	// Collects collection identifier and is stored in finsihed
 	complete chan string
 
-	// Stores finished collections names. We do not store requestcollection as functionality would
+	// Stores finished collections names. We do not store Collection as functionality would
 	// require dereferencing when it doesn't have to be
 	finished map[string]struct{}
 
@@ -54,7 +54,7 @@ type Pool struct {
 // Setting an identifier for our pool
 func (p *Pool) New(name string, settings PoolSettings) {
 	p.name = name
-	p.collections = make(map[string]*RequestCollection, 0)
+	p.collections = make(map[string]*Collection, 0)
 	p.finished = make(map[string]struct{}, 0)
 	p.close = make(chan struct{})
 	// p.complete = make(chan string, 1)
@@ -63,14 +63,14 @@ func (p *Pool) New(name string, settings PoolSettings) {
 }
 
 // Add collection to the map
-func (p *Pool) Add(col string, rc *RequestCollection) {
+func (p *Pool) Add(col string, rc *Collection) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
 		rc.Complete = &p.complete
 		rc.Cancel = make(chan struct{})
-		rc.Result = &RequestResult{
+		rc.Result = &Store{
 			mu:      sync.Mutex{},
 			res:     make([]*interface{}, 0),
 			counter: 0,
@@ -116,7 +116,7 @@ func (p *Pool) Refresh() {
 }
 
 // CancelCollection Ends all request. Doesn't allow graceful finish
-func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
+func (p *Pool) CancelCollection(id string) (*Store, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if val, ok := p.collections[id]; ok {
@@ -273,7 +273,7 @@ func (p *Pool) collector(settings PoolSettings) {
 	}
 }
 
-func (p *Pool) Collections() map[string]*RequestCollection {
+func (p *Pool) Collections() map[string]*Collection {
 	return p.collections
 }
 

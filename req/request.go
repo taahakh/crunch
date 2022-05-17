@@ -8,8 +8,8 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
-// RequestResult stores the results that have been successful
-type RequestResult struct {
+// Store stores the results that have been successful
+type Store struct {
 	// mu is a Mutex used to store multiple scraped information from multiple requests
 	//
 	// All successful requests and handled HTML's are stored here
@@ -37,8 +37,8 @@ type RequestItem struct {
 	Cancel  *context.CancelFunc
 }
 
-// RequestJar holds lists of clients (proxies) and headers (User-Agents)
-type RequestJar struct {
+// Jar holds lists of clients (proxies) and headers (User-Agents)
+type Jar struct {
 	// Clients structs holding transport information for proxies
 	// Instead of clients, it should be replaced with http.Transport
 	// Transports hold how the request should be made. Client is the wrapper
@@ -55,10 +55,10 @@ type RequestJar struct {
 	Headers []*http.Header
 }
 
-// RequestSend is a structure that determines how requests should work
+// Send is a structure that determines how requests should work
 //
 // Holds scraping method
-type RequestSend struct {
+type Send struct {
 	// Client proxy
 	//
 	// This MUST not be EMPTY
@@ -82,88 +82,127 @@ type RequestSend struct {
 	Retries int
 
 	// Method function set by the developer on how to scrape the website
-	Method func(rp ResultPackage) bool
+	Scrape func(rp Result) bool
 }
 
-type ResultPackage struct {
+// Result is used in conjunction with the method scrape in Send
+//
+// You can scrape, store scraped data and request new links
+type Result struct {
+	// document is the struct that allows scraping of webpages
 	document *traverse.HTMLDocument
-	save     *RequestResult
-	ms       *MutexSend
+
+	// save saves the scraped data/any data in the form of structs
+	save *Store
+
+	// ms is Send list with mutex functionality
+	ms *MutexSend
 }
 
+// MutexSend stores new Sends that are made through the method Scrape in Send
+//
+// We need to store RS (Send) in order for us to cancel new Request objects when needed
 type MutexSend struct {
 	mu     sync.Mutex
-	list   []*RequestSend
+	list   []*Send
 	end    bool
-	scrape chan *RequestSend
+	scrape chan *Send
 }
 
-type RequestCollection struct {
-	// Finish tells us when we want the webscrape to end by no matter what
-	// Finish nil will go on until everything is finished
+// Collection holds all the necessary data to request and scrape webpages
+//
+// This is a large struct and potentially holding a lot of information. Collections should not be copied
+// but their reference should. Collections should not be accessed when running and the neccessary values
+// should be placed in order for it to run smoothly.
+//
+// Collections should not be dereferenced when possible. There is mutex lock functionality. This is up to the
+// developer to be careful on how to access the collection
+//
+// This data structure allows it so to be used in a pool of other collections and can be accessed by third party
+// handlers in order to control the scraping
+type Collection struct {
 
 	/* ---------- POOL Usage -------------- */
 	// Interaction with the pool allows safe cancellations and retrieval of collections when needed
 
-	// Provides identity for collection and allows the pool to identify
+	// Identity is used for collection naming and allows the pool to identify
 	Identity string
 
-	// Pool sending cancel struct to end REQUESTS for this collection
+	// Cancel struct ends REQUESTS for this collection
 	Cancel chan struct{}
 
-	// Telling the pool that this collection REQUESTS has finally stopped running.
+	// Notify tells the pool that this collection REQUESTS has finally stopped running.
 	// Sends the identity of this collection back to the pool
 	Notify *chan string
 
-	// Tells the pool that this collection has finished
+	// Complete tells the pool that this collection has finished
 	Complete *chan string
 
-	// Used for cancelling collections. We need to know if the process has started or it will hang when trying to cancel
+	// Start is used for cancelling collections. We need to know if the process has started or it will hang when trying to cancel
 	Start bool
 
-	// State of collection if it is has stopped processing
+	// Done states if collection if it is has stopped processing
 	// This tells the pool that it should not attempt to cancel the collection when it already has been cancelled/finished
 	Done bool
 
 	/* ---------- METHOD usage ------------ */
 	// All the information needed to send requests as well as all client information linked to the collection
-	// RequestSend needs to be MUTEXED
 
-	RJ     *RequestJar
-	RS     []*RequestSend
-	Result *RequestResult
-	muxrs  *MutexSend
+	// RJ stores headers and clients
+	RJ *Jar
+
+	// RS stores grouped clients, requests, retries, scraping method
+	RS []*Send
+
+	// Result contains all scraped results in this collection
+	Result *Store
+
+	// muxrs handles new RS items being created and stores them in muxrs
+	muxrs *MutexSend
 }
 
-func (rc *RequestCollection) SetMuxSend() {
+/* ?Collection ----------------------------------------------------- */
+
+// SetMuxSend instantiates MutexSend if there is no mutexsend already there
+func (rc *Collection) SetMuxSend() {
 	if rc.muxrs == nil {
 		rc.muxrs = &MutexSend{
 			mu:   sync.Mutex{},
 			end:  false,
-			list: make([]*RequestSend, 0),
+			list: make([]*Send, 0),
 		}
 	}
 }
 
-func (rc *RequestCollection) GetMuxSend() *MutexSend {
+// GetMuxSend returns MutexSend
+func (rc *Collection) GetMuxSend() *MutexSend {
 	return rc.muxrs
 }
 
-func (ms *MutexSend) New(scr chan *RequestSend) *MutexSend {
+/* ?MutexSend -----------------------------------------------------  */
 
+// New instantiates MutexSend
+func (ms *MutexSend) New(scr chan *Send) *MutexSend {
 	return &MutexSend{
 		mu:     sync.Mutex{},
 		end:    false,
-		list:   make([]*RequestSend, 0),
+		list:   make([]*Send, 0),
 		scrape: scr,
 	}
 }
 
-func (ms *MutexSend) SetChannel(scr chan *RequestSend) {
+// SetChannel is used where we want the mutexsend to start a request in a particular routine
+//
+// The retry/try channel set by the request methods create their own retry/try channel which muxsend
+// will use to carry out request conditions
+func (ms *MutexSend) SetChannel(scr chan *Send) {
 	ms.scrape = scr
 }
 
-func (ms *MutexSend) Add(items ...*RequestSend) {
+// Add will add as many Send requests to the list
+//
+// If it has been called to end all requests, all new requests will not be carried out but will be saved in the list
+func (ms *MutexSend) Add(items ...*Send) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	ms.list = append(ms.list, items...)
@@ -174,6 +213,9 @@ func (ms *MutexSend) Add(items ...*RequestSend) {
 	}
 }
 
+// End cancels all requests
+//
+// Sets end to true stating that no more scraping should continue
 func (ms *MutexSend) End() {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -184,77 +226,86 @@ func (ms *MutexSend) End() {
 	}
 }
 
-func (rs *RequestSend) Decrement() {
+/* ?Send ----------------------------------------------------- */
+
+func (rs *Send) Decrement() {
 	rs.Retries--
 }
 
-func (rs *RequestSend) AddHeader(key, value string) {
+func (rs *Send) AddHeader(key, value string) {
 	rs.Request.Request.Header.Add(key, value)
 }
 
-func (rs *RequestSend) SetHost(host string) {
+func (rs *Send) SetHost(host string) {
 	rs.Request.Request.Host = host
 }
 
-func (rs *RequestSend) SetHeaders(headers map[string][]string) {
+func (rs *Send) SetHeaders(headers map[string][]string) {
 	rs.Request.Request.Header = headers
 }
 
-func (rs *RequestSend) SetHeadersStruct(header *http.Header) {
+func (rs *Send) SetHeadersStruct(header *http.Header) {
 	rs.Request.Request.Header = *header
 }
 
-func (c *RequestResult) Add(b interface{}) {
+/* ?Store ----------------------------------------------------- */
+
+func (c *Store) Add(b interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.res = append(c.res, &b)
 	c.counter++
 }
 
-func (c *RequestResult) Read() []*interface{} {
+func (c *Store) Read() []*interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
 }
 
-func (c *RequestResult) Count() int {
+func (c *Store) Count() int {
 	return c.counter
 }
+
+/* ?Result ----------------------------------------------------- */
+
+func (rp Result) New(doc *traverse.HTMLDocument, save *Store, mutexSend *MutexSend) Result {
+	rp.document = doc
+	rp.save = save
+	rp.ms = mutexSend
+	return rp
+}
+
+func (rp Result) Document() *traverse.HTMLDocument {
+	return rp.document
+}
+
+func (rp Result) Save(item interface{}) {
+	rp.save.Add(item)
+}
+
+func (rp Result) Scrape(m func(rp Result) bool, url ...string) {
+	rp.ms.Add(ItemToSend(MakeRequestItems(ConvertToURL(url)), m)...)
+}
+
+func (rp Result) ScrapeStruct(rs ...*Send) {
+	rp.ms.Add(rs...)
+}
+
+/* ?RequestItem ----------------------------------------------------- */
 
 func (ri *RequestItem) CancelRequest() {
 	cancel := *ri.Cancel
 	cancel()
 }
 
-func (rp ResultPackage) New(doc *traverse.HTMLDocument, save *RequestResult, mutexSend *MutexSend) ResultPackage {
-	rp.document = doc
-	rp.save = save
-	// rp.channel = retry
-	rp.ms = mutexSend
-	return rp
-}
+/* METHODS ----------------------------------------------------- */
 
-func (rp ResultPackage) Document() *traverse.HTMLDocument {
-	return rp.document
-}
-
-func (rp ResultPackage) Save(item interface{}) {
-	rp.save.Add(item)
-}
-
-func (rp ResultPackage) Scrape(m func(rp ResultPackage) bool, url ...string) {
-	rp.ms.Add(ItemToSend(MakeRequestItems(ConvertToURL(url)), m)...)
-}
-
-func (rp ResultPackage) ScrapeStruct(rs ...*RequestSend) {
-	rp.ms.Add(rs...)
-}
-
-func Scrape(url []string) []*RequestSend {
+func Scrape(url []string) []*Send {
 	urls := MakeRequestItems(ConvertToURL(url))
-	items := make([]*RequestSend, 0, len(urls))
+	items := make([]*Send, 0, len(urls))
 	for _, x := range urls {
-		items = append(items, &RequestSend{
+		items = append(items, &Send{
 			Request: x,
 			Retries: 1,
 		})

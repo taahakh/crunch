@@ -32,7 +32,7 @@ const (
 
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
-func Batch(rc *RequestCollection, size int, gap string) {
+func Batch(rc *Collection, size int, gap string) {
 	var dur time.Duration
 
 	// check if time duration is empty
@@ -50,7 +50,7 @@ func Batch(rc *RequestCollection, size int, gap string) {
 	}
 
 	var wg sync.WaitGroup
-	retry := make(chan *RequestSend, size)
+	retry := make(chan *Send, size)
 	// Scrape results
 	result := rc.Result
 	// safe := rj.Safe
@@ -141,11 +141,11 @@ func Batch(rc *RequestCollection, size int, gap string) {
 
 // ----------------------------------------------------------
 
-func CompleteSession(rc *RequestCollection) {
+func CompleteSession(rc *Collection) {
 
 	var wg sync.WaitGroup
-	retry := make(chan *RequestSend, 10) // Requests for those that need a retry or they have finsihed retrying
-	result := rc.Result                  // Scrape results
+	retry := make(chan *Send, 10) // Requests for those that need a retry or they have finsihed retrying
+	result := rc.Result           // Scrape results
 	cancel := rc.Cancel
 	complete := rc.Complete
 	end := make(chan struct{})
@@ -206,12 +206,12 @@ loop:
 
 // ----------------------------------------------------------
 
-func Simple(rc *RequestCollection) {
+func Simple(rc *Collection) {
 	var wg sync.WaitGroup
 
 	// Retry functionality is set to continue scraping new calls and NOT failed calls
 	// However its can be setup in any way
-	retry := make(chan *RequestSend)
+	retry := make(chan *Send)
 	result := rc.Result
 	cancel := rc.Cancel
 	complete := rc.Complete
@@ -256,7 +256,7 @@ loop:
 
 // ----------------------------------------------------------
 
-func clientProcess(client *http.Client, request *http.Request, req *RequestSend, retry chan *RequestSend) (*http.Response, error) {
+func clientProcess(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
 	resp, err := client.Do(request)
 
 	if err != nil {
@@ -286,7 +286,7 @@ func noClientProcess(client *http.Client, request *http.Request) (*http.Response
 	return resp, nil
 }
 
-func HandleRequest(enforce bool, req *RequestSend, retry chan *RequestSend, rr *RequestResult, ms *MutexSend, wg *sync.WaitGroup) {
+func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *MutexSend, wg *sync.WaitGroup) {
 
 	var resp *http.Response
 	var err error
@@ -315,7 +315,7 @@ func HandleRequest(enforce bool, req *RequestSend, retry chan *RequestSend, rr *
 	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
-	data, err := RunScrape(resp, rr, ms, req.Method)
+	data, err := RunScrape(resp, rr, ms, req.Scrape)
 	if err != nil {
 		log.Println("Couldn't read body")
 		return
@@ -351,7 +351,7 @@ func changeClient(client *http.Client, list []*http.Client, counter int) int {
 	return counter
 }
 
-func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
+func changeHeaders(req *http.Request, jar *Jar, count int) int {
 	req.Header = *jar.Headers[count]
 	count++
 	if count == len(jar.Headers) {
@@ -363,7 +363,7 @@ func changeHeaders(req *http.Request, jar *RequestJar, count int) int {
 // if true, it means that the scrape was unsuccessful
 // if false, scrape successful
 
-func RunScrape(r *http.Response, res *RequestResult, ms *MutexSend, m func(rp ResultPackage) bool) (bool, error) {
+func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
 	if err != nil {
@@ -377,7 +377,7 @@ func RunScrape(r *http.Response, res *RequestResult, ms *MutexSend, m func(rp Re
 	}
 
 	item := traverse.HTMLDocBytes(&bytes)
-	pack := ResultPackage{}
+	pack := Result{}
 	pack = pack.New(&item, res, ms)
 	if m == nil {
 		return true, err

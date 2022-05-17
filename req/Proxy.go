@@ -154,14 +154,14 @@ func MakeRequestItem(link string) *RequestItem {
 	}
 }
 
-// ItemToSend puts RequestItems in RequestSend struct. Scrape functionality is added with these structs
-func ItemToSend(items []*RequestItem, m func(rp ResultPackage) bool) []*RequestSend {
-	send := make([]*RequestSend, 0, len(items))
+// ItemToSend puts RequestItems in Send struct. Scrape functionality is added with these structs
+func ItemToSend(items []*RequestItem, m func(rp Result) bool) []*Send {
+	send := make([]*Send, 0, len(items))
 	for _, x := range items {
-		send = append(send, &RequestSend{
+		send = append(send, &Send{
 			Request: x,
 			Retries: 1,
-			Method:  m,
+			Scrape:  m,
 		})
 	}
 	return send
@@ -170,8 +170,8 @@ func ItemToSend(items []*RequestItem, m func(rp ResultPackage) bool) []*RequestS
 // NoProxy doesn't use proxy to make requests
 //
 // Uses shared client for all requests
-func NoProxy(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
-	rs := make([]*RequestSend, 0, len(urls))
+func NoProxy(urls []string, timeout time.Duration, method func(rp Result) bool) *Collection {
+	rs := make([]*Send, 0, len(urls))
 	req := ConvertToURL(urls)
 
 	client := &http.Client{}
@@ -179,14 +179,14 @@ func NoProxy(urls []string, timeout time.Duration, method func(rp ResultPackage)
 	ri := MakeRequestItems(req)
 	for _, x := range ri {
 
-		rs = append(rs, &RequestSend{
+		rs = append(rs, &Send{
 			Request: x,
-			Method:  method,
+			Scrape:  method,
 			Client:  client,
 		})
 	}
 
-	return &RequestCollection{
+	return &Collection{
 		RS: rs,
 	}
 }
@@ -201,7 +201,7 @@ func ProxySetup(
 	headers []*http.Header,
 	retries int,
 	timeout time.Duration,
-	method func(rp ResultPackage) bool) *RequestCollection {
+	method func(rp Result) bool) *Collection {
 
 	var ri []*RequestItem
 
@@ -223,37 +223,37 @@ func ProxySetup(
 		ri = req
 	}
 
-	rj := &RequestJar{
+	rj := &Jar{
 		Clients: c,
 		Headers: headers,
 	}
 
-	rs, err := MakeRequestSends(c, ri, retries, method)
+	rs, err := MakeSends(c, ri, retries, method)
 	if err != nil {
 		panic("NICE")
 	}
 
-	return &RequestCollection{
+	return &Collection{
 		RJ: rj,
 		RS: rs,
 	}
 }
 
-// MakeRequestSends attaches client, requests, retries, scraping method in one struct
-func MakeRequestSends(rc []*http.Client, ri []*RequestItem, retries int, method func(rp ResultPackage) bool) ([]*RequestSend, error) {
+// MakeSends attaches client, requests, retries, scraping method in one struct
+func MakeSends(rc []*http.Client, ri []*RequestItem, retries int, method func(rp Result) bool) ([]*Send, error) {
 	counter := 0
 	if len(rc) == 0 || len(ri) == 0 {
 		return nil, errors.New("Either list is of size 0")
 	}
-	rs := make([]*RequestSend, 0, len(ri))
+	rs := make([]*Send, 0, len(ri))
 	for _, x := range ri {
 		if counter == len(rc) {
 			counter = 0
 		}
-		rs = append(rs, &RequestSend{
+		rs = append(rs, &Send{
 			Request: x,
 			Client:  rc[counter],
-			Method:  method,
+			Scrape:  method,
 			Retries: retries,
 		})
 	}
