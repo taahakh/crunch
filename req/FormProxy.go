@@ -145,16 +145,20 @@ func CompleteSession(rc *Collection) {
 
 	var wg sync.WaitGroup
 	retry := make(chan *Send, 10) // Requests for those that need a retry or they have finsihed retrying
-	result := rc.Result           // Scrape results
-	cancel := rc.Cancel
-	complete := rc.Complete
 	end := make(chan struct{})
 
 	cClient := 0
 	cHeader := 0
 
 	ms := rc.muxrs
-	ms.SetChannel(retry)
+	if ms != nil {
+		ms.SetChannel(retry)
+	}
+
+	collectionChecker(rc)
+	result := rc.Result     // Scrape results
+	cancel := rc.Cancel     // Pool usage
+	complete := rc.Complete // Pool usage
 
 	for _, x := range rc.RS {
 		wg.Add(1)
@@ -163,13 +167,13 @@ func CompleteSession(rc *Collection) {
 
 	go func() {
 		wg.Wait()
-		*complete <- rc.Identity
+		if complete != nil {
+			*complete <- rc.Identity
+		}
 		close(end)
 		rc.Done = true
 		return
 	}()
-
-	fmt.Println("do i exisst: ", rc.Result)
 
 loop:
 	for {
@@ -206,36 +210,45 @@ loop:
 
 // ----------------------------------------------------------
 
+// Simple handles requests normally. It can take in proxied clients or not and doesn't
+// allow retries.
 func Simple(rc *Collection) {
 	var wg sync.WaitGroup
 
 	// Retry functionality is set to continue scraping new calls and NOT failed calls
 	// However its can be setup in any way
 	retry := make(chan *Send)
+	finish := make(chan struct{})
+
+	// ms := rc.muxrs
+	// if ms != nil {
+	// 	ms.SetChannel(retry)
+	// }
+
+	collectionChecker(rc)
 	result := rc.Result
 	cancel := rc.Cancel
 	complete := rc.Complete
-	finish := make(chan struct{})
-
 	ms := rc.muxrs
 	ms.SetChannel(retry)
+
+	fmt.Println(result, cancel, complete)
 
 	for _, x := range rc.RS {
 		wg.Add(1)
 		go HandleRequest(false, x, retry, result, ms, &wg)
-
 	}
 
 	go func() {
 		wg.Wait()
 		close(finish)
-		*complete <- rc.Identity
+		if complete != nil {
+			*complete <- rc.Identity
+		}
 		// CONFLICT
 		rc.Done = true
 		return
 	}()
-
-	fmt.Println("do i exisst: ", rc.Result)
 
 loop:
 	for {
@@ -299,12 +312,15 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	client := req.Client
 	request := req.Request.Request
 
+	// fmt.Println(client.Transport)
+
 	if enforce {
 		resp, err = clientProcess(client, request, req, retry)
 	} else {
 		resp, err = noClientProcess(client, request)
 	}
 
+	// REMEMBER TO REMOVE
 	rr.Add(er{text: "Nice"})
 
 	if err != nil {
@@ -383,4 +399,38 @@ func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bo
 		return true, err
 	}
 	return m(pack), err
+}
+
+func collectionChecker(rc *Collection) *Collection {
+	if rc.Cancel == nil {
+		rc.Cancel = make(chan struct{}, 1)
+	}
+
+	// if rc.Notify == nil {
+	// 	temp := make(chan string, 1)
+	// 	rc.Notify = &temp
+	// }
+
+	// if rc.Complete == nil {
+	// 	temp := make(chan string, 1)
+	// 	rc.Complete = &temp
+	// }
+
+	if rc.RJ == nil {
+		rc.RJ = &Jar{}
+	}
+
+	if rc.RS == nil {
+		rc.RS = make([]*Send, 0)
+	}
+
+	if rc.Result == nil {
+		rc.Result = &Store{}
+	}
+
+	if rc.muxrs == nil {
+		rc.muxrs = &MutexSend{}
+	}
+
+	return rc
 }

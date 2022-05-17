@@ -36,7 +36,7 @@ type Pool struct {
 
 	/* Pool Usage */
 
-	// SIGNALS where a gorotuine has finished
+	// Complete SIGNALS when a gorotuine has finished
 	// Collects collection identifier and is stored in finsihed
 	complete chan string
 

@@ -82,6 +82,10 @@ type Send struct {
 	Retries int
 
 	// Method function set by the developer on how to scrape the website
+	//
+	// if the scrape functionality is used in Result (Result.(Scrape) / Result.(ScrapeStruct))
+	// It should for dependent scraping. This means that the success of the request/scrape should incur another
+	// request when needed
 	Scrape func(rp Result) bool
 }
 
@@ -228,28 +232,34 @@ func (ms *MutexSend) End() {
 
 /* ?Send ----------------------------------------------------- */
 
+// Decrement the amount of retries
 func (rs *Send) Decrement() {
 	rs.Retries--
 }
 
+// AddHeader adds any header key-value pairs to Send
 func (rs *Send) AddHeader(key, value string) {
 	rs.Request.Request.Header.Add(key, value)
 }
 
+// SetHost sets Host for request headers
 func (rs *Send) SetHost(host string) {
 	rs.Request.Request.Host = host
 }
 
+// SetHeaders directly attaches parameter headers to Send struct
 func (rs *Send) SetHeaders(headers map[string][]string) {
 	rs.Request.Request.Header = headers
 }
 
+// SetHeadersStruct applies header to the Send struct
 func (rs *Send) SetHeadersStruct(header *http.Header) {
 	rs.Request.Request.Header = *header
 }
 
 /* ?Store ----------------------------------------------------- */
 
+// Add stores struct into a list - saving for later use
 func (c *Store) Add(b interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -257,18 +267,21 @@ func (c *Store) Add(b interface{}) {
 	c.counter++
 }
 
+// Read returns interface list full of structs
 func (c *Store) Read() []*interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
 }
 
+// Count return number of added data
 func (c *Store) Count() int {
 	return c.counter
 }
 
 /* ?Result ----------------------------------------------------- */
 
+// New instantiates Result struct with scraping document, saving struct, and mutexed sending requests
 func (rp Result) New(doc *traverse.HTMLDocument, save *Store, mutexSend *MutexSend) Result {
 	rp.document = doc
 	rp.save = save
@@ -276,24 +289,29 @@ func (rp Result) New(doc *traverse.HTMLDocument, save *Store, mutexSend *MutexSe
 	return rp
 }
 
+// Document returns scraped document
 func (rp Result) Document() *traverse.HTMLDocument {
 	return rp.document
 }
 
+// Save saves to list
 func (rp Result) Save(item interface{}) {
 	rp.save.Add(item)
 }
 
+// Scrape allows continued requests depending on scraped results
 func (rp Result) Scrape(m func(rp Result) bool, url ...string) {
 	rp.ms.Add(ItemToSend(MakeRequestItems(ConvertToURL(url)), m)...)
 }
 
+// ScrapeStruct allows you to send structs instead of just a url
 func (rp Result) ScrapeStruct(rs ...*Send) {
 	rp.ms.Add(rs...)
 }
 
 /* ?RequestItem ----------------------------------------------------- */
 
+// CancelRequest cancels the current request with context
 func (ri *RequestItem) CancelRequest() {
 	cancel := *ri.Cancel
 	cancel()
@@ -301,6 +319,7 @@ func (ri *RequestItem) CancelRequest() {
 
 /* METHODS ----------------------------------------------------- */
 
+// Scrape does some scraping
 func Scrape(url []string) []*Send {
 	urls := MakeRequestItems(ConvertToURL(url))
 	items := make([]*Send, 0, len(urls))
