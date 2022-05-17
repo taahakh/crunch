@@ -8,44 +8,80 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
-// Stores the results that have been successful
+// RequestResult stores the results that have been successful
 type RequestResult struct {
+	// mu is a Mutex used to store multiple scraped information from multiple requests
+	//
 	// All successful requests and handled HTML's are stored here
 	// Counter tracks the number of successful results
-	mu      sync.Mutex
-	res     []*interface{}
+	mu sync.Mutex
+
+	// res stores all information in the form of structs
+	//
+	// Any data that is saved should be added to a self-made struct
+	// It is up to the developer to type cast the structs in order to retrieve the information
+	res []*interface{}
+
+	// counter tracks the number of results
+	//
+	// DEPRECIATED
 	counter int
 }
 
+// RequestItem stores the Request struct and its cancellation function
+//
+// Request is attached to context.WithContext in order for it to be cancelled
+// This usage is attached to the Pool struct which cancels/ends all requests
 type RequestItem struct {
 	Request *http.Request
 	Cancel  *context.CancelFunc
 }
 
-// Groups of ips and links
+// RequestJar holds lists of clients (proxies) and headers (User-Agents)
 type RequestJar struct {
-	// Clients
+	// Clients structs holding transport information for proxies
+	// Instead of clients, it should be replaced with http.Transport
+	// Transports hold how the request should be made. Client is the wrapper
+	// that runs the request.
+	//
+	// NEEDS TO BE CHANGED
 	Clients []*http.Client
 
-	// For mainly user-agents and also headers
+	// For mainly user-agents and header information
+	// Needs to be in the form of []http.Header.
+	// We want to copy the header map, NOT the address
+	//
+	// NEEDS TO BE CHANGED
 	Headers []*http.Header
 }
 
+// RequestSend is a structure that determines how requests should work
+//
+// Holds scraping method
 type RequestSend struct {
-	// Retries <= 0  - tries unless finished
-	Client  *http.Client
+	// Client proxy
+	//
+	// This MUST not be EMPTY
+	// This could/should be replaced with http.Transport
+	Client *http.Client
+
+	// Request struct
 	Request *RequestItem
 
-	// Change user-agents if its has been detected non-human
+	// Caught is used to say if the User-Agents need to be changed
+	//
+	// Checked by the retry handler to see if the request has been caught being or bot/failed/or otherwise
+	// Caught is determined by the programmer through the scrape process
 	Caught bool
 
-	// Failed ip request - how many more rotations to do
+	// Number of tries it has attempted for a successful request
+	//
+	// Retries >= 1  --> Defines how many attempts
+	// Retries <= -1 --> Keeps on retrying indefinietly
+	// Should not be set to zero. Default set to 1
 	Retries int
 
-	/*
-		The method to use to scrape the webpage
-		Method func(doc *traverse.HTMLDocument, rr *RequestResult) bool
-	*/
+	// Method function set by the developer on how to scrape the website
 	Method func(rp ResultPackage) bool
 }
 
@@ -207,7 +243,7 @@ func (rp ResultPackage) Save(item interface{}) {
 }
 
 func (rp ResultPackage) Scrape(m func(rp ResultPackage) bool, url ...string) {
-	rp.ms.Add(ItemToSend(CreateLinkRequestContext(ConvertToURL(url)), m)...)
+	rp.ms.Add(ItemToSend(MakeRequestItems(ConvertToURL(url)), m)...)
 }
 
 func (rp ResultPackage) ScrapeStruct(rs ...*RequestSend) {
@@ -215,7 +251,7 @@ func (rp ResultPackage) ScrapeStruct(rs ...*RequestSend) {
 }
 
 func Scrape(url []string) []*RequestSend {
-	urls := CreateLinkRequestContext(ConvertToURL(url))
+	urls := MakeRequestItems(ConvertToURL(url))
 	items := make([]*RequestSend, 0, len(urls))
 	for _, x := range urls {
 		items = append(items, &RequestSend{

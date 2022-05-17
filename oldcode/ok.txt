@@ -111,3 +111,34 @@ func QueuedWorker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSen
 // 	}
 // 	return
 // }
+
+
+
+
+// func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
+// 	req, err := http.NewRequest(method, url, body)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+
+// 	return req
+// }
+
+// func SimpleNoContextSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
+// 	rs := make([]*RequestSend, 0, len(urls))
+// 	req := ConvertToURL(urls)
+
+// 	ri := CreateLinkRequestContext(req)
+// 	for _, x := range ri {
+
+// 		rs = append(rs, &RequestSend{
+// 			Request: x,
+// 			Method:  method,
+// 			Client:  &http.Client{},
+// 		})
+// 	}
+
+// 	return &RequestCollection{
+// 		RS: rs,
+// 	}
+// }

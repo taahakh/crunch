@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,6 +16,7 @@ const (
 	UntilComplete = ""
 )
 
+/* READERS */
 func GenodeRead(csv [][]string, protocol string) []string {
 	var ipList []string
 
@@ -43,7 +43,12 @@ func SingleList(csv [][]string, protocol string) []string {
 	return ipList
 }
 
-func ConnProxNoDefer(link, proxy string, timeout time.Duration) (*http.Response, error) {
+/* CONNECTION */
+
+// Proxy is a simple request made with a proxy
+//
+// ONLY HTTP/HTTPS compatable
+func Proxy(link, proxy string, timeout time.Duration) (*http.Response, error) {
 	p, err := url.Parse(proxy)
 	if err != nil {
 		log.Println("Proxy parsing not working")
@@ -80,14 +85,17 @@ func ConnProxNoDefer(link, proxy string, timeout time.Duration) (*http.Response,
 	return res, err
 }
 
-func CreateLinkRequestContext(links []*url.URL) []*RequestItem {
+/* STRUCTURES */
+
+// MakeRequestItem takes in urls and creates a struct that contains http.Request and cancellation function
+func MakeRequestItems(links []*url.URL) []*RequestItem {
 	r := make([]*RequestItem, 0, len(links))
 
 	for _, x := range links {
 		ctx, cancel := context.WithCancel(context.Background())
 		req, err := http.NewRequestWithContext(ctx, "GET", x.String(), nil)
 		if err != nil {
-			log.Println("CreateLinkRequestContext: Failed")
+			log.Println("RequestItem: Failed")
 		}
 
 		r = append(r, &RequestItem{
@@ -99,7 +107,8 @@ func CreateLinkRequestContext(links []*url.URL) []*RequestItem {
 	return r
 }
 
-func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client {
+// MakeProxyClient creates a list of clients with attached timeouts
+func MakeProxyClients(proxies []*url.URL, timeout time.Duration) []*http.Client {
 	clients := make([]*http.Client, 0, len(proxies))
 
 	for i := 0; i < len(proxies); i++ {
@@ -115,6 +124,7 @@ func CreateProxyClient(proxies []*url.URL, timeout time.Duration) []*http.Client
 	return clients
 }
 
+// ConvertToURL converts strings to appropriate urls
 func ConvertToURL(c []string) []*url.URL {
 	urls := make([]*url.URL, 0, len(c))
 	for _, x := range c {
@@ -127,7 +137,8 @@ func ConvertToURL(c []string) []*url.URL {
 	return urls
 }
 
-func CreateRequestItem(link string) *RequestItem {
+// MakeRequestItem creates a http.Request with cancellation function
+func MakeRequestItem(link string) *RequestItem {
 	x, err := url.Parse(link)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,6 +154,7 @@ func CreateRequestItem(link string) *RequestItem {
 	}
 }
 
+// ItemToSend puts RequestItems in RequestSend struct. Scrape functionality is added with these structs
 func ItemToSend(items []*RequestItem, m func(rp ResultPackage) bool) []*RequestSend {
 	send := make([]*RequestSend, 0, len(items))
 	for _, x := range items {
@@ -155,44 +167,22 @@ func ItemToSend(items []*RequestItem, m func(rp ResultPackage) bool) []*RequestS
 	return send
 }
 
-func CreateNewRequest(method string, url string, body io.Reader) *http.Request {
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		log.Println(err)
-	}
-
-	return req
-}
-
-// func SimpleSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
-// 	rs := make([]*RequestSend, 0, len(urls))
-// 	req := ConvertToURL(urls)
-
-// ri := CreateLinkRequestContext(req)
-// 	for _, x := range ri {
-
-// 		rs = append(rs, &RequestSend{
-// 			Request: x,
-// 			Method:  method,
-// 		})
-// 	}
-
-// 	return &RequestCollection{
-// 		RS: rs,
-// 	}
-// }
-
-func SimpleNoContextSetup(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
+// NoProxy doesn't use proxy to make requests
+//
+// Uses shared client for all requests
+func NoProxy(urls []string, timeout time.Duration, method func(rp ResultPackage) bool) *RequestCollection {
 	rs := make([]*RequestSend, 0, len(urls))
 	req := ConvertToURL(urls)
 
-	ri := CreateLinkRequestContext(req)
+	client := &http.Client{}
+
+	ri := MakeRequestItems(req)
 	for _, x := range ri {
 
 		rs = append(rs, &RequestSend{
 			Request: x,
 			Method:  method,
-			Client:  &http.Client{},
+			Client:  client,
 		})
 	}
 
@@ -201,7 +191,11 @@ func SimpleNoContextSetup(urls []string, timeout time.Duration, method func(rp R
 	}
 }
 
-func SimpleProxySetup(
+// ProxySetup allows requests to be dialled through a proxy
+//
+// Proxy, Url String lists and timeout must not be empty
+// Method func and retries should be added to make the request and scrape more useful
+func ProxySetup(
 	proxy []string,
 	urls []string,
 	headers []*http.Header,
@@ -218,23 +212,23 @@ func SimpleProxySetup(
 	req := ConvertToURL(urls)
 	cli := ConvertToURL(proxy)
 
-	ri = CreateLinkRequestContext(req)
-	c := CreateProxyClient(cli, timeout)
+	ri = MakeRequestItems(req)
+	c := MakeProxyClients(cli, timeout)
 
 	if headers != nil {
 		req, err := ApplyHeadersRI(ri, headers)
 		if err != nil {
-			log.Println("Header error")
+			log.Println("Headers could not be applied")
 		}
 		ri = req
 	}
 
 	rj := &RequestJar{
 		Clients: c,
-		// Links:   ri,
+		Headers: headers,
 	}
 
-	rs, err := CreateRequestSend(c, ri, retries, method)
+	rs, err := MakeRequestSends(c, ri, retries, method)
 	if err != nil {
 		panic("NICE")
 	}
@@ -245,28 +239,8 @@ func SimpleProxySetup(
 	}
 }
 
-// func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(doc *traverse.HTMLDocument, rr *RequestResult) bool) ([]*RequestSend, error) {
-// 	counter := 0
-// 	if len(rc) == 0 || len(ri) == 0 {
-// 		return nil, errors.New("Either list is of size 0")
-// 	}
-// 	rs := make([]*RequestSend, 0, len(ri))
-// 	for _, x := range ri {
-// 		if counter == len(rc) {
-// 			counter = 0
-// 		}
-// 		rs = append(rs, &RequestSend{
-// 			Request: x,
-// 			Client:  rc[counter],
-// 			Method:  method,
-// 			Retries: retries,
-// 		})
-// 	}
-
-// 	return rs, nil
-// }
-
-func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method func(rp ResultPackage) bool) ([]*RequestSend, error) {
+// MakeRequestSends attaches client, requests, retries, scraping method in one struct
+func MakeRequestSends(rc []*http.Client, ri []*RequestItem, retries int, method func(rp ResultPackage) bool) ([]*RequestSend, error) {
 	counter := 0
 	if len(rc) == 0 || len(ri) == 0 {
 		return nil, errors.New("Either list is of size 0")
@@ -287,7 +261,8 @@ func CreateRequestSend(rc []*http.Client, ri []*RequestItem, retries int, method
 	return rs, nil
 }
 
-func CreateSOCKS5Client(ip string) *http.Client {
+// SOCKS5Client returns http.Client for use of sock proxy
+func SOCKS5Client(ip string) *http.Client {
 	dials, err := proxy.SOCKS5("tcp", ip, nil, proxy.Direct)
 	if err != nil {
 		fmt.Println("error connecting to proxy", err)
@@ -303,6 +278,7 @@ func CreateSOCKS5Client(ip string) *http.Client {
 	return client
 }
 
+// ApplyHeadersRI links headers to requests
 func ApplyHeadersRI(req []*RequestItem, headers []*http.Header) ([]*RequestItem, error) {
 	counter := 0
 	length := len(headers)
@@ -319,6 +295,7 @@ func ApplyHeadersRI(req []*RequestItem, headers []*http.Header) ([]*RequestItem,
 	return req, nil
 }
 
+// ApplyHeaders applies headers to requests
 func ApplyHeaders(req []*http.Request, headers []*http.Header) ([]*http.Request, error) {
 	counter := 0
 	length := len(headers)
@@ -335,6 +312,7 @@ func ApplyHeaders(req []*http.Request, headers []*http.Header) ([]*http.Request,
 	return req, nil
 }
 
+// ApplyUserAgents applies User-Agent header to header list
 func ApplyUserAgents(headers []*http.Header, agents []string) ([]*http.Header, error) {
 	counter := 0
 	length := len(agents)
@@ -351,6 +329,9 @@ func ApplyUserAgents(headers []*http.Header, agents []string) ([]*http.Header, e
 	return headers, nil
 }
 
+// CreateHeaders transfroms list into http.Header
+//
+// This doesn't need to be used if in the format of map[string][]string
 func CreateHeaders(agents []string) ([]*http.Header, error) {
 	headers := make([]*http.Header, 0, len(agents))
 
@@ -366,6 +347,7 @@ func CreateHeaders(agents []string) ([]*http.Header, error) {
 	return headers, nil
 }
 
+// CreateHeader creates a simple header struct that takes a User-Agent as its first input
 func CreateHeader(agent string) http.Header {
 	return http.Header{
 		"User-Agent": []string{agent},
