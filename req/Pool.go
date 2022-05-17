@@ -103,7 +103,7 @@ func (p *Pool) rem(id string) {
 	delete(p.collections, id)
 }
 
-// UNSAFE
+// Refresh UNSAFE
 // Checking our collection and deleting any one that has been finished
 func (p *Pool) Refresh() {
 	p.mu.RLock()
@@ -115,7 +115,7 @@ func (p *Pool) Refresh() {
 	}
 }
 
-// Ends all request. Doesn't allow graceful finish
+// CancelCollection Ends all request. Doesn't allow graceful finish
 func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
