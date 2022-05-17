@@ -131,7 +131,9 @@ func Batch(rc *Collection, size int, gap string) {
 
 	go func() {
 		wg.Wait()
-		*complete <- rc.Identity
+		if complete != nil {
+			*complete <- rc.Identity
+		}
 		rc.Done = true
 		return
 	}()
@@ -150,15 +152,17 @@ func CompleteSession(rc *Collection) {
 	cClient := 0
 	cHeader := 0
 
-	ms := rc.muxrs
-	if ms != nil {
-		ms.SetChannel(retry)
-	}
+	// ms := rc.muxrs
+	// if ms != nil {
+	// 	ms.SetChannel(retry)
+	// }
 
 	collectionChecker(rc)
 	result := rc.Result     // Scrape results
 	cancel := rc.Cancel     // Pool usage
 	complete := rc.Complete // Pool usage
+	ms := rc.muxrs
+	ms.SetChannel(retry)
 
 	for _, x := range rc.RS {
 		wg.Add(1)
