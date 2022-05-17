@@ -16,6 +16,7 @@ type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
 	IncomingCompletedCollections func(rc *RequestCollection)
 	IncomingRequestCompletion    func(name string)
+	Cache                        bool
 }
 
 type RequestMethods int
@@ -127,9 +128,7 @@ func (p *Pool) CancelCollection(id string) (*RequestResult, error) {
 		if val.Done {
 			return val.Result, nil
 		}
-		// fmt.Println("before: ", val.Done)
 		val.Done = true
-		// fmt.Println("before: ", val.Done)
 		val.Cancel <- struct{}{}
 
 		// Stops requests from occuring via mutexed RequestSend
@@ -172,6 +171,7 @@ func (p *Pool) BlockUntilComplete(id string) []*interface{} {
 		if err == nil {
 			return res
 		}
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 
