@@ -2,59 +2,57 @@ package req
 
 import (
 	"encoding/gob"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/taahakh/speed/traverse"
 )
 
+// Set time/day on when needed to refresh
 type Cache struct {
-	sites    map[string]*traverse.HTMLDocument
-	refresh  map[string]int
-	nRefresh int
+	Sites    map[string]traverse.HTMLDocument
+	Refresh  map[string]int
+	NRefresh int
 }
 
-func (c *Cache) New() {
-	c.sites = make(map[string]*traverse.HTMLDocument)
-	c.refresh = make(map[string]int)
+func (c Cache) New() *Cache {
+	c.Sites = make(map[string]traverse.HTMLDocument)
+	c.Refresh = make(map[string]int)
+	c.NRefresh = 0
+	return &c
 }
 
-func (c *Cache) Add(req string, doc *traverse.HTMLDocument) bool {
-	if _, ok := c.sites[req]; !ok {
-		c.sites[req] = doc
+func (c *Cache) Add(req string, doc traverse.HTMLDocument) bool {
+	if _, ok := c.Sites[req]; !ok {
+		c.Sites[req] = doc
 		return true
 	}
-
 	return false
 }
 
-func (c *Cache) Remove(req string) bool {
-	if _, ok := c.sites[req]; ok {
-		delete(c.sites, req)
-		return true
-	}
-
-	return false
-}
-
-func (c *Cache) Exists(req string) bool {
-	_, ok := c.sites[req]
-	return ok
-}
-
-func (c *Cache) Save() error {
-	wErr := write("./cache.gob", *c)
+// ./cache.gob
+func (c *Cache) Save(path string) error {
+	wErr := write(path, *c)
 	if wErr != nil {
-		log.Println(wErr)
+		log.Println("Saving: ", wErr)
 		return wErr
 	}
 	return nil
 }
 
-func (c Cache) Load() (*Cache, error) {
-	rErr := read("./cache.gob", c)
+func (c *Cache) Has(req string) (*traverse.HTMLDocument, error) {
+	if val, ok := c.Sites[req]; ok {
+		return &val, nil
+	}
+	return nil, errors.New("Doesn't contain document")
+}
+
+func (c Cache) Load(path string) (*Cache, error) {
+	rErr := read(path, &c)
 	if rErr != nil {
-		log.Println(rErr)
+		log.Println("Loading: ", rErr)
 		return nil, rErr
 	}
 	return &c, rErr
@@ -70,12 +68,13 @@ func write(path string, obj Cache) error {
 	return err
 }
 
-func read(path string, obj Cache) error {
+func read(path string, c *Cache) error {
 	file, err := os.Open(path)
 	defer file.Close()
 	if err == nil {
 		dec := gob.NewDecoder(file)
-		err = dec.Decode(&obj)
+		err = dec.Decode(c)
+		fmt.Println("did i looad: ", c)
 	}
 	return err
 }

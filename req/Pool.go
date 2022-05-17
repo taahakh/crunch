@@ -16,7 +16,7 @@ type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
 	IncomingCompletedCollections func(rc *RequestCollection)
 	IncomingRequestCompletion    func(name string)
-	Cache                        bool
+	Cache                        Cache
 }
 
 type RequestMethods int
