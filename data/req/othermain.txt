@@ -12,11 +12,15 @@ import (
 	"github.com/taahakh/speed/req"
 )
 
+const (
+	cacheLoc = "./cache.gob"
+)
+
 type Storing struct {
 	Text string
 }
 
-func scr(rp req.ResultPackage) bool {
+func successful(rp req.Result) bool {
 	rp.Save(Storing{
 		Text: rp.Document().Node.Text(),
 	})
@@ -25,11 +29,17 @@ func scr(rp req.ResultPackage) bool {
 	return true
 }
 
-func whenDone(rc *req.RequestCollection) {
+func whenDone(rc *req.Collection) {
 	for _, x := range rc.Result.Read() {
 		item := *x
-		convert := item.(Storing)
-		fmt.Println("CONVERTED: ", convert)
+		switch v := item.(type) {
+		case Storing:
+			convert := item.(Storing)
+			fmt.Println("CONVERTED: ", convert.Text[0])
+			break
+		default:
+			log.Println("Couldn't cast. Interface is -> ", v)
+		}
 	}
 }
 
@@ -49,7 +59,7 @@ func main() {
 	fmt.Println(csv[0])
 
 	fmt.Println(dur == 0)
-	// rc := req.SimpleProxySetup(
+	// rc := req.ProxySetup(
 	// 	req.GenodeRead(csv, "http"),
 	// 	// nil,
 	// 	[]string{
@@ -63,39 +73,29 @@ func main() {
 	// 	scr,
 	// )
 
-	rc := req.SimpleProxySetup(
-		req.SingleList(csv2, "http"),
-		// nil,
-		[]string{
-			"https://httpbin.org",
-			// "https://ruktaj.co.uk",
-			"https://httpbin.org/ip",
-			"https://httpbin.org/ip",
-			"https://httpbin.org/ip",
-		},
-		nil,
-		15,
-		dur,
-		scr,
-	)
-
-	// rc := req.SimpleNoContextSetup(
+	// rc := req.ProxySetup(
+	// 	// req.SingleList(csv2, "http"),
+	// 	req.GenodeRead(csv, "http"),
 	// 	[]string{
 	// 		"https://httpbin.org",
 	// 		"https://httpbin.org/ip",
+	// 		"https://httpbin.org/ip",
+	// 		"https://httpbin.org/ip",
 	// 	},
+	// 	nil,
+	// 	1,
 	// 	dur,
-	// 	scr,
+	// 	successful,
 	// )
 
-	// rc := req.SimpleNoContextSetup(
-	// 	[]string{
-	// 		"https://trsssail.org",
-	// 		"https://cssssani.org/ip",
-	// 	},
-	// 	dur,
-	// 	scr,
-	// )
+	rc := req.NoProxy(
+		[]string{
+			"https://httpbin.org",
+			"https://httpbin.org/ip",
+		},
+		dur,
+		successful,
+	)
 
 	// rc1 := req.SimpleSetup(
 	// 	[]string{
@@ -109,65 +109,49 @@ func main() {
 	// fmt.Println(rc1)
 	fmt.Println(rc)
 
+	// cc := req.Cache{}.New()
+	// cc.Load(cacheLoc)
+
+	// req.CompleteSession(rc)
+	req.Simple(rc)
+	// fmt.Println(rc.Result.Read())
+	time.Sleep(time.Second * 5)
+	// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	// if false {
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+
 	pool := req.Pool{}
 	pool.New("pool", req.PoolSettings{
 		IncomingCompletedCollections: whenDone,
+		// Cache:                        *cc,
 	})
 	pool.Add("new", rc)
-	// pool.Add("new1", rc1)
-	pool.Run("new", req.Method_Complete, 2)
-	// pool.Run("new1", "simple", 0)
-	// pool.Close()
-	pool.GetFinishedList()
-	time.Sleep(time.Second * 10)
-	// go func() {
-	// 	for {
-	// time.Sleep(time.Second * 8)
-	// 		fmt.Println("Routine: ", runtime.NumGoroutine())
-	// 		// fmt.Println(pool.GetFinishedList())
-	// 		// debug.PrintStack()
-	// 		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
-	// 	}
-	// }()
-	// time.Sleep(time.Second * 5)
-	// i, err := pool.PopIfCompleted("new")
-	// fmt.Println("in collection: ", pool.)
-	// fmt.Println("popped:", i)
-	// fmt.Println("remaingig collec: ", pool.Stored())
 	pool.Close()
-	// pool.Close()
-	time.Sleep(time.Second * 3)
-	// pool.Close()
-	// time.Sleep(time.Second * 15)
-	// pool.Close()
-	// time.Sleep(time.Second * 4)
+	// }
+
+	// pool.Add("new1", rc1)
+
+	// pool.Run("new", req.Method_Complete, 2)
+	// please := pool.BlockUntilComplete("new")
+	// fmt.Println(please)
+
+	// cc.Add("1", traverse.HTMLDocument{})
+	// cc.Add("2", traverse.HTMLDocument{})
+	// cc.Add("1")
+	// cc.Add("2")
+	// cc.Save(cacheLoc)
+
+	// fmt.Println(cc)
+	time.Sleep(time.Second * 5)
 	// pool.Close()
 	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 
-	fmt.Println(pool.AmIDone("new"))
+	// fmt.Println(pool.AmIDone("new"))
 
 	for {
 		time.Sleep(time.Second * 10)
 		fmt.Println("Routine: ", runtime.NumGoroutine())
-		// fmt.Println(pool.GetFinishedList())
-		// debug.PrintStack()
+		// fmt.Println(pool.AmIDone("new"))
 		// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	}
-
-	// req.HTMLDocUTF8Run(&http.Response{}, &req.RequestResult{}, google)
-
-	// pool := req.Pool{}
-	// pool.SetName("pool")
-	// pool.Add("new", rc)
-	// pool.Run("new", "batch", 0)
-	// // pool.Run("new", "complete", 3)
-
-	// time.Sleep(time.Second * 5)
-
-	// pool.ForceCancelAll("new")
-	// for {
-	// 	time.Sleep(time.Second * 2)
-	// 	fmt.Println("Routine: ", runtime.NumGoroutine())
-	// 	// q.View()
-	// }
 }
