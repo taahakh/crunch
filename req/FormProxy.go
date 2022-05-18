@@ -111,7 +111,9 @@ func Batch(rc *Collection, size int, gap string) {
 				} else if item.Retries == 0 {
 					cDone--
 				} else {
-					cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
+					cClient = changeClient(item, rc.RJ.Clients, cClient)
+					// cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
+
 					q.Add(item)
 				}
 				break
@@ -195,7 +197,8 @@ loop:
 				break
 			default:
 				wg.Add(1)
-				cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
+				// cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
+				cClient = changeClient(item, rc.RJ.Clients, cClient)
 				go HandleRequest(true, item, retry, result, ms, &wg)
 			}
 			break
@@ -274,7 +277,6 @@ loop:
 // ----------------------------------------------------------
 
 func clientProcess(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
-	fmt.Println(request)
 	resp, err := client.Do(request)
 
 	if err != nil {
@@ -326,7 +328,7 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	}
 
 	// REMEMBER TO REMOVE
-	rr.Add(er{text: "Nice"})
+	// rr.Add(er{text: "Nice"})
 
 	if err != nil {
 		log.Println(err)
@@ -363,12 +365,37 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 
 // ----------------------------------------------------------
 
-func changeClient(client *http.Client, list []*http.Client, counter int) int {
-	client = list[counter]
+func changeClient(client *Send, list []*http.Client, counter int) int {
+	// func changeClient(cli *http.Client, list []*http.Client, counter int) int {
+
+	fmt.Println("current client: ", client.Client)
+
+	newCli := list[counter]
+
+	if newCli == client.Client {
+		// if newCli == cli {
+
+		fmt.Println("DOES EQUAL")
+		counter++
+
+		if counter == len(list) {
+			counter = 0
+		}
+
+		return changeClient(client, list, counter)
+		// return changeClient(cli, list, counter)
+	}
+
+	client.Client = newCli
+	// cli = newCli
 	counter++
+
+	fmt.Println("after client: ", client.Client)
+
 	if counter == len(list) {
 		counter = 0
 	}
+
 	return counter
 }
 
