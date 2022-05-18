@@ -274,6 +274,7 @@ loop:
 // ----------------------------------------------------------
 
 func clientProcess(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
+	fmt.Println(request)
 	resp, err := client.Do(request)
 
 	if err != nil {
