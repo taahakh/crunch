@@ -51,34 +51,45 @@ func Batch(rc *Collection, size int, gap string) {
 
 	var wg sync.WaitGroup
 	retry := make(chan *Send, size)
+	end := make(chan struct{})
+
 	// Scrape results
-	result := rc.Result
+
+	// Result
 	// safe := rj.Safe
 	// The pool telling the collection to end all requests
-	cancel := rc.Cancel
+
+	// Cancel
 	// End the goroutine where we do requests.
 	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
 	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
-	end := make(chan struct{})
-	complete := rc.Complete
 
 	cClient := 0
 	// cDone := len(rj.RJ.Links)
 	cDone := len(rc.RS)
 	cHeader := 0
 
+	collectionChecker(rc)
+
+	result := rc.Result
+	cancel := rc.Cancel
+	complete := rc.Complete
 	ms := rc.muxrs
 	ms.SetChannel(retry)
 
 	q := Queue{}
 	q.Make(rc.RS)
 
+	hLen := len(rc.RJ.Headers) > 0
+	cLen := len(rc.RJ.Clients) > 0
+
 	wg.Add(1)
 
 	go func() {
 		// We go thorugh the list first without doing the retries
 		for {
+			q.View()
 			select {
 			case <-end:
 				return
@@ -93,7 +104,9 @@ func Batch(rc *Collection, size int, gap string) {
 				}
 
 				time.Sleep(dur)
+				// fmt.Println("After sleep")
 			}
+
 		}
 	}()
 
@@ -105,15 +118,17 @@ func Batch(rc *Collection, size int, gap string) {
 			select {
 			case item := <-retry:
 				if item.Caught {
-					cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
+					if hLen {
+						cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
+					}
 					item.Caught = false
 					q.Add(item)
 				} else if item.Retries == 0 {
 					cDone--
 				} else {
-					cClient = changeClient(item, rc.RJ.Clients, cClient)
-					// cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
-
+					if cLen {
+						cClient = changeClient(item, rc.RJ.Clients, cClient)
+					}
 					q.Add(item)
 				}
 				break
@@ -154,11 +169,6 @@ func CompleteSession(rc *Collection) {
 	cClient := 0
 	cHeader := 0
 
-	// ms := rc.muxrs
-	// if ms != nil {
-	// 	ms.SetChannel(retry)
-	// }
-
 	collectionChecker(rc)
 	result := rc.Result     // Scrape results
 	cancel := rc.Cancel     // Pool usage
@@ -197,7 +207,6 @@ loop:
 				break
 			default:
 				wg.Add(1)
-				// cClient = changeClient(item.Client, rc.RJ.Clients, cClient)
 				cClient = changeClient(item, rc.RJ.Clients, cClient)
 				go HandleRequest(true, item, retry, result, ms, &wg)
 			}
@@ -209,9 +218,6 @@ loop:
 		}
 	}
 
-	// completeCriterion(retry, rj, result, &cancel, &end, &wg)
-
-	// This closes goroutine if it is run as a goroutine
 	return
 }
 
@@ -227,19 +233,12 @@ func Simple(rc *Collection) {
 	retry := make(chan *Send)
 	finish := make(chan struct{})
 
-	// ms := rc.muxrs
-	// if ms != nil {
-	// 	ms.SetChannel(retry)
-	// }
-
 	collectionChecker(rc)
 	result := rc.Result
 	cancel := rc.Cancel
 	complete := rc.Complete
 	ms := rc.muxrs
 	ms.SetChannel(retry)
-
-	fmt.Println(result, cancel, complete)
 
 	for _, x := range rc.RS {
 		wg.Add(1)
@@ -311,7 +310,6 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	var resp *http.Response
 	var err error
 
-	// wg.Add(1)
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -319,16 +317,11 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	client := req.Client
 	request := req.Request.Request
 
-	// fmt.Println(client.Transport)
-
 	if enforce {
 		resp, err = clientProcess(client, request, req, retry)
 	} else {
 		resp, err = noClientProcess(client, request)
 	}
-
-	// REMEMBER TO REMOVE
-	// rr.Add(er{text: "Nice"})
 
 	if err != nil {
 		log.Println(err)
@@ -356,7 +349,6 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 		return
 	}
 
-	// rr.add(data)
 	req.Retries = 0
 	retry <- req
 
@@ -366,31 +358,22 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 // ----------------------------------------------------------
 
 func changeClient(client *Send, list []*http.Client, counter int) int {
-	// func changeClient(cli *http.Client, list []*http.Client, counter int) int {
-
-	fmt.Println("current client: ", client.Client)
 
 	newCli := list[counter]
 
-	if newCli == client.Client {
-		// if newCli == cli {
+	// if newCli == client.Client {
 
-		fmt.Println("DOES EQUAL")
-		counter++
+	// 	counter++
 
-		if counter == len(list) {
-			counter = 0
-		}
+	// 	if counter == len(list) {
+	// 		counter = 0
+	// 	}
 
-		return changeClient(client, list, counter)
-		// return changeClient(cli, list, counter)
-	}
+	// 	return changeClient(client, list, counter)
+	// }
 
 	client.Client = newCli
-	// cli = newCli
 	counter++
-
-	fmt.Println("after client: ", client.Client)
 
 	if counter == len(list) {
 		counter = 0

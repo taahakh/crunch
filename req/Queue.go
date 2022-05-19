@@ -39,6 +39,11 @@ func (q *Queue) Add(rs *Send) bool {
 			q.front = 0
 		}
 		return true
+	} else {
+		// We append to the slice if the slice if full
+		// Add position will stay the same until it empty and has
+		// added item
+		q.List = append(q.List, rs)
 	}
 
 	return false

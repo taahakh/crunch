@@ -188,6 +188,9 @@ func NoProxy(urls []string, timeout time.Duration, method func(rp Result) bool) 
 
 	return &Collection{
 		RS: rs,
+		RJ: &Jar{
+			Clients: []*http.Client{{}},
+		},
 	}
 }
 

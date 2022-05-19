@@ -115,15 +115,14 @@ type MutexSend struct {
 
 // Collection holds all the necessary data to request and scrape webpages
 //
-// This is a large struct and potentially holding a lot of information. Collections should not be copied
-// but their reference should. Collections should not be accessed when running and the neccessary values
-// should be placed in order for it to run smoothly.
-//
-// Collections should not be dereferenced when possible. There is mutex lock functionality. This is up to the
-// developer to be careful on how to access the collection
-//
 // This data structure allows it so to be used in a pool of other collections and can be accessed by third party
 // handlers in order to control the scraping
+//
+// Collections should not be dereferenced when possible. There is no mutex lock functionality. This is up to the
+// developer to be careful on how to access the collection
+//
+// It's best to use the in-house functions to form the collections. To create a safe and fully functiontion collection,
+// reading documentatio on how requests, rotation and scraping is conducted in this package should be read first
 type Collection struct {
 
 	/* ---------- POOL Usage -------------- */
