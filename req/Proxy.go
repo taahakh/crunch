@@ -160,7 +160,7 @@ func ItemToSend(items []*RequestItem, m func(rp Result) bool) []*Send {
 	for _, x := range items {
 		send = append(send, &Send{
 			Request: x,
-			Retries: 1,
+			Retries: 5,
 			Scrape:  m,
 		})
 	}

@@ -8,6 +8,19 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
+// type Handler interface {
+// 	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, c int, h int, rc *Collection) (int, int)
+// }
+
+type CompleteHandler interface {
+	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
+}
+
+type BatchHandler interface {
+	Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
+	Done() bool
+}
+
 // Store stores the results that have been successful
 type Store struct {
 	// mu is a Mutex used to store multiple scraped information from multiple requests
@@ -107,9 +120,13 @@ type Result struct {
 //
 // We need to store RS (Send) in order for us to cancel new Request objects when needed
 type MutexSend struct {
-	mu     sync.Mutex
-	list   []*Send
-	end    bool
+	mu   sync.Mutex
+	list []*Send
+
+	// end notifies that no more scraping should take place
+	end bool
+
+	// passes Send to start scraping b
 	scrape chan *Send
 }
 
@@ -162,6 +179,10 @@ type Collection struct {
 
 	// muxrs handles new RS items being created and stores them in muxrs
 	muxrs *MutexSend
+
+	// RequestHandler defines how requests should be handled once they are finished or an error has occured
+	// This handler only works for CompleteSession
+	// RequestHandler func(item *Send, wg *sync.WaitGroup, retry chan *Send, c int, h int, rc *Collection) (int, int)
 }
 
 /* ?Collection ----------------------------------------------------- */

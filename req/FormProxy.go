@@ -17,6 +17,57 @@ type er struct {
 	text string
 }
 
+type tracker struct {
+	client int
+	header int
+}
+
+type DefaultCompleteHandler struct {
+	c int
+	h int
+}
+
+func (dh *DefaultCompleteHandler) Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) {
+	switch {
+	case item.Caught:
+		wg.Add(1)
+		dh.c = changeHeaders(item.Request.Request, rc.RJ, dh.c)
+		item.Caught = false
+		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+		break
+	case item.Retries == 0:
+		break
+	default:
+		wg.Add(1)
+		dh.h = changeClient(item, rc.RJ.Clients, dh.h)
+		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+		break
+	}
+}
+
+type DefaultBatchHandler struct {
+	c    int
+	h    int
+	done int
+}
+
+func (dh *DefaultBatchHandler) Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection) {
+	if item.Caught {
+		dh.h = changeHeaders(item.Request.Request, rc.RJ, dh.h)
+		item.Caught = false
+		q.Add(item)
+	} else if item.Retries == 0 {
+		dh.done--
+	} else {
+		dh.c = changeClient(item, rc.RJ.Clients, dh.c)
+		q.Add(item)
+	}
+}
+
+func (dh *DefaultBatchHandler) Done() bool {
+	return dh.done == 0
+}
+
 // Proxy constants
 const (
 	ProxyConnectionPoolError = "ProxyConnection: Client Failed! [POOL]"
@@ -32,8 +83,11 @@ const (
 
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
-func Batch(rc *Collection, size int, gap string) {
+func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
+
 	var dur time.Duration
+	var handle func(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
+	var done func() bool
 
 	// check if time duration is empty
 	if gap != "" {
@@ -65,11 +119,6 @@ func Batch(rc *Collection, size int, gap string) {
 	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
 	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 
-	cClient := 0
-	// cDone := len(rj.RJ.Links)
-	cDone := len(rc.RS)
-	cHeader := 0
-
 	collectionChecker(rc)
 
 	result := rc.Result
@@ -78,11 +127,19 @@ func Batch(rc *Collection, size int, gap string) {
 	ms := rc.muxrs
 	ms.SetChannel(retry)
 
+	cClient := 0
+	cDone := len(rc.RS)
+	cHeader := 0
+
+	if handler != nil {
+		handle = handler.Handle
+		done = handler.Done
+	} else {
+		// dh := &
+	}
+
 	q := Queue{}
 	q.Make(rc.RS)
-
-	hLen := len(rc.RJ.Headers) > 0
-	cLen := len(rc.RJ.Clients) > 0
 
 	wg.Add(1)
 
@@ -118,17 +175,13 @@ func Batch(rc *Collection, size int, gap string) {
 			select {
 			case item := <-retry:
 				if item.Caught {
-					if hLen {
-						cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
-					}
+					cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
 					item.Caught = false
 					q.Add(item)
 				} else if item.Retries == 0 {
 					cDone--
 				} else {
-					if cLen {
-						cClient = changeClient(item, rc.RJ.Clients, cClient)
-					}
+					cClient = changeClient(item, rc.RJ.Clients, cClient)
 					q.Add(item)
 				}
 				break
@@ -160,14 +213,14 @@ func Batch(rc *Collection, size int, gap string) {
 
 // ----------------------------------------------------------
 
-func CompleteSession(rc *Collection) {
+func CompleteSession(rc *Collection, handle CompleteHandler) {
 
 	var wg sync.WaitGroup
+	var handler func(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
+	var dh *DefaultCompleteHandler
+
 	retry := make(chan *Send, 10) // Requests for those that need a retry or they have finsihed retrying
 	end := make(chan struct{})
-
-	cClient := 0
-	cHeader := 0
 
 	collectionChecker(rc)
 	result := rc.Result     // Scrape results
@@ -175,6 +228,13 @@ func CompleteSession(rc *Collection) {
 	complete := rc.Complete // Pool usage
 	ms := rc.muxrs
 	ms.SetChannel(retry)
+
+	if handle != nil {
+		handler = handle.Handle
+	} else {
+		dh = &DefaultCompleteHandler{}
+		handler = dh.Handle
+	}
 
 	for _, x := range rc.RS {
 		wg.Add(1)
@@ -194,23 +254,8 @@ func CompleteSession(rc *Collection) {
 loop:
 	for {
 		select {
-		// Handling retries
 		case item := <-retry:
-			switch {
-			case item.Caught:
-				wg.Add(1)
-				cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
-				item.Caught = false
-				go HandleRequest(true, item, retry, result, ms, &wg)
-				break
-			case item.Retries == 0:
-				break
-			default:
-				wg.Add(1)
-				cClient = changeClient(item, rc.RJ.Clients, cClient)
-				go HandleRequest(true, item, retry, result, ms, &wg)
-			}
-			break
+			handler(item, &wg, retry, rc)
 		case <-cancel:
 			break loop
 		case <-end:
@@ -449,3 +494,25 @@ func collectionChecker(rc *Collection) *Collection {
 
 	return rc
 }
+
+// ----------------------------------------------------------
+
+// func defaultRequestHandler(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) (int, int) {
+// 	switch {
+// 	case item.Caught:
+// 		wg.Add(1)
+// 		c = changeHeaders(item.Request.Request, rc.RJ, c)
+// 		item.Caught = false
+// 		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+// 		break
+// 	case item.Retries == 0:
+// 		break
+// 	default:
+// 		wg.Add(1)
+// 		h = changeClient(item, rc.RJ.Clients, h)
+// 		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+// 		break
+// 	}
+
+// 	return c, h
+// }

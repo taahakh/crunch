@@ -5,7 +5,10 @@ import (
 	"sync"
 )
 
-// A circular queue that implements a linear queue for further Scraping
+// A circular queue that works like a stack
+//
+// This is mutexed as multiple goroutines might
+// access the same structure
 type Queue struct {
 	mu         sync.RWMutex
 	List       []*Send
@@ -20,6 +23,7 @@ func (q *Queue) New(length int) *Queue {
 	}
 }
 
+// Make assigns items of Send array to queue
 func (q *Queue) Make(rs []*Send) *Queue {
 	q.List = rs
 	q.front = 0
@@ -27,6 +31,12 @@ func (q *Queue) Make(rs []*Send) *Queue {
 	return q
 }
 
+// Add places Send into the queue
+//
+// It will all to the queue if there is an empty space
+// If there is no empty space, the slice will be appended
+// with the new element. It will fill nil places when it has
+// been popped
 func (q *Queue) Add(rs *Send) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -49,6 +59,7 @@ func (q *Queue) Add(rs *Send) bool {
 	return false
 }
 
+// Pop removes item from the queue in FIFO order
 func (q *Queue) Pop() *Send {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -66,6 +77,7 @@ func (q *Queue) Pop() *Send {
 	return nil
 }
 
+// View shows the list at this current state
 func (q *Queue) View() {
 	q.mu.RLock()
 	defer q.mu.RUnlock()

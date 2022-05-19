@@ -16,7 +16,6 @@ type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
 	IncomingCompletedCollections func(rc *Collection)
 	IncomingRequestCompletion    func(name string)
-	Cache                        Cache
 }
 
 type RequestMethods int
@@ -236,10 +235,10 @@ func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
 	switch method {
 	case Method_Complete:
-		go CompleteSession(p.collections[id])
+		go CompleteSession(p.collections[id], nil)
 		break
 	case Method_Batch:
-		go Batch(p.collections[id], 2, "3s")
+		go Batch(p.collections[id], 2, "3s", nil)
 		break
 	case Method_Simple:
 		go Simple(p.collections[id])

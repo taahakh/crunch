@@ -223,3 +223,20 @@ func QueuedWorker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSen
 // 		list: make([]*Send, 0, size),
 // 	}
 // }
+
+
+			// switch {
+			// case item.Caught:
+			// 	wg.Add(1)
+			// 	cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
+			// 	item.Caught = false
+			// 	go HandleRequest(true, item, retry, result, ms, &wg)
+			// 	break
+			// case item.Retries == 0:
+			// 	break
+			// default:
+			// 	wg.Add(1)
+			// 	cClient = changeClient(item, rc.RJ.Clients, cClient)
+			// 	go HandleRequest(true, item, retry, result, ms, &wg)
+			// }
+			// break
