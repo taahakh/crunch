@@ -15,6 +15,7 @@ type Queue struct {
 	front, pop int
 }
 
+// New instantiates new queue with default values
 func (q *Queue) New(length int) *Queue {
 	return &Queue{
 		List:  make([]*Send, 0, length),

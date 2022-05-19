@@ -2,6 +2,7 @@ package req
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ type PoolLook interface {
 type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
 	IncomingCompletedCollections func(rc *Collection)
-	IncomingRequestCompletion    func(name string)
 }
 
 type RequestMethods int
@@ -55,7 +55,12 @@ func (p *Pool) New(name string, settings PoolSettings) {
 	p.name = name
 	p.collections = make(map[string]*Collection, 0)
 	p.finished = make(map[string]struct{}, 0)
-	p.close = make(chan struct{})
+	// We buffer the close channel as the collector can be used to close itself via the close method
+	// This however makes it so that the collector wont be able to get the close signal while there is
+	// a stuck process in the close method (cant reach the collector).
+	// Running Close() as another goroutine can be another way but its not recommeneded as their can be a
+	// loss of data/race conditions when doing so
+	p.close = make(chan struct{}, 1)
 	// p.complete = make(chan string, 1)
 	p.complete = make(chan string)
 	go p.collector(settings)
@@ -95,7 +100,7 @@ func (p *Pool) Remove(col string) error {
 	return errors.New("Cannot remove until this is collection is finished or cancelled")
 }
 
-// UNSAFE
+// UNSAFE - Deprecitated
 // Should be used when collection is safe to remove
 // The collection will run even when removed
 func (p *Pool) rem(id string) {
@@ -261,6 +266,14 @@ func (p *Pool) collector(settings PoolSettings) {
 				// removes collection from the pool. The name will still exist in finished array
 				// but gone for good
 				// p.rem(y)
+			}
+			if len(p.finished) == len(p.collections) {
+				fmt.Println("finishd")
+				if settings.AllCollectionsCompleted != nil {
+					p.mu.Unlock()
+					settings.AllCollectionsCompleted(p)
+					p.mu.Lock()
+				}
 			}
 			p.mu.Unlock()
 			break

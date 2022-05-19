@@ -8,19 +8,6 @@ import (
 	"github.com/taahakh/speed/traverse"
 )
 
-// type Handler interface {
-// 	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, c int, h int, rc *Collection) (int, int)
-// }
-
-type CompleteHandler interface {
-	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
-}
-
-type BatchHandler interface {
-	Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
-	Done() bool
-}
-
 // Store stores the results that have been successful
 type Store struct {
 	// mu is a Mutex used to store multiple scraped information from multiple requests
@@ -179,10 +166,34 @@ type Collection struct {
 
 	// muxrs handles new RS items being created and stores them in muxrs
 	muxrs *MutexSend
+}
 
-	// RequestHandler defines how requests should be handled once they are finished or an error has occured
-	// This handler only works for CompleteSession
-	// RequestHandler func(item *Send, wg *sync.WaitGroup, retry chan *Send, c int, h int, rc *Collection) (int, int)
+// CompleteHandler is the handler for the complete request function
+//
+// It defines how requests should be handled once they are finished or an error has occured
+type CompleteHandler interface {
+	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
+}
+
+// BatchHandler is the handler for the batch request function
+//
+// It defines how requests should be handled once they are finished or an error has occured
+type BatchHandler interface {
+	Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
+	Done() bool
+}
+
+// Default handler for Complete
+type DefaultCompleteHandler struct {
+	c int
+	h int
+}
+
+// Default handler for Batch
+type DefaultBatchHandler struct {
+	c    int
+	h    int
+	done int
 }
 
 /* ?Collection ----------------------------------------------------- */
@@ -337,9 +348,49 @@ func (ri *RequestItem) CancelRequest() {
 	cancel()
 }
 
+/* HANDLERS ----------------------------------------------------- */
+
+// Handle requests
+func (dh *DefaultCompleteHandler) Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) {
+	switch {
+	case item.Caught:
+		wg.Add(1)
+		dh.c = changeHeaders(item.Request.Request, rc.RJ, dh.c)
+		item.Caught = false
+		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+		break
+	case item.Retries == 0:
+		break
+	default:
+		wg.Add(1)
+		dh.h = changeClient(item, rc.RJ.Clients, dh.h)
+		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
+		break
+	}
+}
+
+// Handle requests
+func (dh *DefaultBatchHandler) Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection) {
+	if item.Caught {
+		dh.h = changeHeaders(item.Request.Request, rc.RJ, dh.h)
+		item.Caught = false
+		q.Add(item)
+	} else if item.Retries == 0 {
+		dh.done--
+	} else {
+		dh.c = changeClient(item, rc.RJ.Clients, dh.c)
+		q.Add(item)
+	}
+}
+
+// Done returns bool if all requests have been done
+func (dh *DefaultBatchHandler) Done() bool {
+	return dh.done == 0
+}
+
 /* METHODS ----------------------------------------------------- */
 
-// Scrape does some scraping
+// Scrape converts a string of urls into Send struct
 func Scrape(url []string) []*Send {
 	urls := MakeRequestItems(ConvertToURL(url))
 	items := make([]*Send, 0, len(urls))

@@ -13,61 +13,6 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-type er struct {
-	text string
-}
-
-type tracker struct {
-	client int
-	header int
-}
-
-type DefaultCompleteHandler struct {
-	c int
-	h int
-}
-
-func (dh *DefaultCompleteHandler) Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) {
-	switch {
-	case item.Caught:
-		wg.Add(1)
-		dh.c = changeHeaders(item.Request.Request, rc.RJ, dh.c)
-		item.Caught = false
-		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
-		break
-	case item.Retries == 0:
-		break
-	default:
-		wg.Add(1)
-		dh.h = changeClient(item, rc.RJ.Clients, dh.h)
-		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
-		break
-	}
-}
-
-type DefaultBatchHandler struct {
-	c    int
-	h    int
-	done int
-}
-
-func (dh *DefaultBatchHandler) Handle(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection) {
-	if item.Caught {
-		dh.h = changeHeaders(item.Request.Request, rc.RJ, dh.h)
-		item.Caught = false
-		q.Add(item)
-	} else if item.Retries == 0 {
-		dh.done--
-	} else {
-		dh.c = changeClient(item, rc.RJ.Clients, dh.c)
-		q.Add(item)
-	}
-}
-
-func (dh *DefaultBatchHandler) Done() bool {
-	return dh.done == 0
-}
-
 // Proxy constants
 const (
 	ProxyConnectionPoolError = "ProxyConnection: Client Failed! [POOL]"
@@ -98,7 +43,6 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 		dur = t
 	}
 
-	// if time duration == 0
 	if dur == 0 {
 		return
 	}
@@ -106,18 +50,6 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 	var wg sync.WaitGroup
 	retry := make(chan *Send, size)
 	end := make(chan struct{})
-
-	// Scrape results
-
-	// Result
-	// safe := rj.Safe
-	// The pool telling the collection to end all requests
-
-	// Cancel
-	// End the goroutine where we do requests.
-	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
-	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
-	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
 
 	collectionChecker(rc)
 
@@ -127,15 +59,13 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 	ms := rc.muxrs
 	ms.SetChannel(retry)
 
-	cClient := 0
-	cDone := len(rc.RS)
-	cHeader := 0
-
 	if handler != nil {
 		handle = handler.Handle
 		done = handler.Done
 	} else {
-		// dh := &
+		dh := &DefaultBatchHandler{done: len(rc.RS)}
+		handle = dh.Handle
+		done = dh.Done
 	}
 
 	q := Queue{}
@@ -161,7 +91,6 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 				}
 
 				time.Sleep(dur)
-				// fmt.Println("After sleep")
 			}
 
 		}
@@ -174,23 +103,14 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 
 			select {
 			case item := <-retry:
-				if item.Caught {
-					cHeader = changeHeaders(item.Request.Request, rc.RJ, cHeader)
-					item.Caught = false
-					q.Add(item)
-				} else if item.Retries == 0 {
-					cDone--
-				} else {
-					cClient = changeClient(item, rc.RJ.Clients, cClient)
-					q.Add(item)
-				}
+				handle(item, &wg, &q, rc)
 				break
 			case <-cancel:
 				end <- struct{}{}
 				wg.Done()
 				return
 			default:
-				if cDone == 0 {
+				if done() {
 					end <- struct{}{}
 					wg.Done()
 					return
@@ -320,7 +240,8 @@ loop:
 
 // ----------------------------------------------------------
 
-func clientProcess(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
+// enforce
+func enforceTrue(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
 	resp, err := client.Do(request)
 
 	if err != nil {
@@ -332,7 +253,8 @@ func clientProcess(client *http.Client, request *http.Request, req *Send, retry 
 	return resp, nil
 }
 
-func noClientProcess(client *http.Client, request *http.Request) (*http.Response, error) {
+// notEnforce
+func enforceFalse(client *http.Client, request *http.Request) (*http.Response, error) {
 	var cli http.Client
 
 	if client != nil {
@@ -350,6 +272,7 @@ func noClientProcess(client *http.Client, request *http.Request) (*http.Response
 	return resp, nil
 }
 
+// HandleRequest
 func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *MutexSend, wg *sync.WaitGroup) {
 
 	var resp *http.Response
@@ -363,9 +286,9 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	request := req.Request.Request
 
 	if enforce {
-		resp, err = clientProcess(client, request, req, retry)
+		resp, err = enforceTrue(client, request, req, retry)
 	} else {
-		resp, err = noClientProcess(client, request)
+		resp, err = enforceFalse(client, request)
 	}
 
 	if err != nil {
@@ -405,17 +328,6 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 func changeClient(client *Send, list []*http.Client, counter int) int {
 
 	newCli := list[counter]
-
-	// if newCli == client.Client {
-
-	// 	counter++
-
-	// 	if counter == len(list) {
-	// 		counter = 0
-	// 	}
-
-	// 	return changeClient(client, list, counter)
-	// }
 
 	client.Client = newCli
 	counter++

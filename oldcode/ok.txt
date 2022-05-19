@@ -240,3 +240,17 @@ func QueuedWorker(jobs <-chan *RequestSend, enforce bool, retry chan *RequestSen
 			// 	go HandleRequest(true, item, retry, result, ms, &wg)
 			// }
 			// break
+
+
+
+				// Scrape results
+
+	// Result
+	// safe := rj.Safe
+	// The pool telling the collection to end all requests
+
+	// Cancel
+	// End the goroutine where we do requests.
+	// This goroutine ends when the second goroutine receives a cancellation singal from the pool
+	// sends struct to end this goroutine. Cannot use the same cancellation signal to end the goroutine
+	// we also want to make sure that any retries that are updated to the queue does not get missed by the cancellation
