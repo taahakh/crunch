@@ -8,49 +8,60 @@ import (
 	"time"
 )
 
+// PoolLook is mainly to interface Pool struct
+// Used to prevent other usage with the pool
 type PoolLook interface {
 	Close()
 	Collections() map[string]*Collection
 }
 
+// PoolSettings handles what to do when collections are all finished
+// and what to do when completed collection are just finished
 type PoolSettings struct {
 	AllCollectionsCompleted      func(p PoolLook)
 	IncomingCompletedCollections func(rc *Collection)
 }
 
+// RequestMethods are constants on request/scraping methods
 type RequestMethods int
 
+// For RequestMethods
 const (
 	Method_Complete RequestMethods = iota
 	Method_Batch
 	Method_Simple
 )
 
+// Pool holds multiple collections to be run at whatever time.
+// Requests for collections can be closed and access to the collections via
+// the pool can be made for further usage e.g. via a web server
 type Pool struct {
-	mu   sync.RWMutex
-	name string // Pool Name
+	mu sync.RWMutex
 
-	// Active or soon to be active collections
+	// name for the pool
+	name string
+
+	// collections map
 	collections map[string]*Collection
 
-	/* Pool Usage */
+	/* --------------- Pool Usage --------------- */
 
-	// Complete SIGNALS when a gorotuine has finished
+	// complete SIGNALS when a gorotuine has finished
 	// Collects collection identifier and is stored in finsihed
 	complete chan string
 
-	// Stores finished collections names. We do not store Collection as functionality would
+	// finished collects collections names. We do not store Collection as functionality would
 	// require dereferencing when it doesn't have to be
 	finished map[string]struct{}
 
-	// Signal to close the Garbage collector and the pool. Closing pool will come later
+	// close the Garbage collector and the pool.
 	close chan struct{}
 
-	// Create deadlock if we try to close again even though it's already closed
+	// closed prevents deadlock if we try to close again even though it's already closed
 	closed bool
 }
 
-// Setting an identifier for our pool
+// New instantiates and sets an identifier for our pool
 func (p *Pool) New(name string, settings PoolSettings) {
 	p.name = name
 	p.collections = make(map[string]*Collection, 0)
@@ -86,7 +97,7 @@ func (p *Pool) Add(col string, rc *Collection) {
 	}
 }
 
-// Delete collection from the map
+// Remove collection from the map
 func (p *Pool) Remove(col string) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -100,6 +111,7 @@ func (p *Pool) Remove(col string) error {
 	return errors.New("Cannot remove until this is collection is finished or cancelled")
 }
 
+// rem
 // UNSAFE - Deprecitated
 // Should be used when collection is safe to remove
 // The collection will run even when removed
@@ -152,7 +164,8 @@ func (p *Pool) CancelCollection(id string) (*Store, error) {
 	return nil, errors.New("Collection doesn't exist")
 }
 
-//  Pops from collection and returns the scraped data
+// ------ RENAME
+// PopIfCompleted Pops from collection and returns the scraped data
 func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -165,10 +178,12 @@ func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
 	return nil, errors.New("Could not pop. Either it was not completed or the id is wrong")
 }
 
+// isFinished checks if the collections have safely closed and are completed
 func (p *Pool) isFinished(id string) bool {
 	return p.amIDone(id) && p.amIFinished(id)
 }
 
+// BlockUntilComplete will block the current function until the collection has been completed
 func (p *Pool) BlockUntilComplete(id string) []*interface{} {
 	for {
 		res, err := p.PopIfCompleted(id)
