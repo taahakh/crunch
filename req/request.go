@@ -110,6 +110,10 @@ type MutexSend struct {
 	mu   sync.Mutex
 	list []*Send
 
+	// manual is a parameter that gives control over to the user on how to handle new requests
+	// this should be left to default (false) if you don't want to handle storing Send structs
+	manual bool
+
 	// end notifies that no more scraping should take place
 	end bool
 
@@ -240,7 +244,9 @@ func (ms *MutexSend) SetChannel(scr chan *Send) {
 func (ms *MutexSend) Add(items ...*Send) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	ms.list = append(ms.list, items...)
+	if !ms.manual {
+		ms.list = append(ms.list, items...)
+	}
 	if !ms.end {
 		for _, x := range items {
 			ms.scrape <- x
@@ -259,6 +265,11 @@ func (ms *MutexSend) End() {
 		c := *x.Request.Cancel
 		c()
 	}
+}
+
+// Manual gives control to the developer on how Send structs should be stored
+func (ms *MutexSend) Manual() {
+	ms.manual = true
 }
 
 /* ?Send ----------------------------------------------------- */

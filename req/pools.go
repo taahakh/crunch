@@ -164,8 +164,8 @@ func (p *Pool) CancelCollection(id string) (*Store, error) {
 	return nil, errors.New("Collection doesn't exist")
 }
 
-// ------ RENAME
 // PopIfCompleted Pops from collection and returns the scraped data
+// ------ RENAME
 func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -194,8 +194,8 @@ func (p *Pool) BlockUntilComplete(id string) []*interface{} {
 	}
 }
 
+// NumOfRunnig sees how many Collections are running
 // EXPENSIVE
-// See how many Collections are running
 func (p *Pool) NumOfRunning() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -222,18 +222,20 @@ func (p *Pool) GetFinishedList() map[string]struct{} {
 	return p.finished
 }
 
-// NO MUTEX.
+// Checks if finished wtthout MUTEX.
 func (p *Pool) amIFinished(id string) bool {
 	_, ok := p.finished[id]
 	return ok
 }
 
+// AmIFinished checks if collections are finished
 func (p *Pool) AmIFinished(id string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.amIFinished(id)
 }
 
+// Checks if collection is done without mutex
 func (p *Pool) amIDone(id string) bool {
 	if col, ok := p.collections[id]; ok {
 		if col.Done {
@@ -244,6 +246,7 @@ func (p *Pool) amIDone(id string) bool {
 	return false
 }
 
+// AmIDone checks if the collection is done
 func (p *Pool) AmIDone(id string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -251,6 +254,7 @@ func (p *Pool) AmIDone(id string) bool {
 }
 
 // Run scrape
+// NEED TO CHANGE
 func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
 	switch method {
@@ -300,6 +304,7 @@ func (p *Pool) collector(settings PoolSettings) {
 	}
 }
 
+// Collections returns collection map
 func (p *Pool) Collections() map[string]*Collection {
 	return p.collections
 }
@@ -311,12 +316,14 @@ func (p *Pool) Stored() int {
 	return len(p.collections)
 }
 
+// Stop ends all running collections
 func (p *Pool) Stop() {
 	for _, x := range p.collections {
 		p.CancelCollection(x.Identity)
 	}
 }
 
+// CompletionChecker
 // UNSAFE - implemented safely
 func (p *Pool) CompletionChecker() bool {
 	// p.mu.Lock()
@@ -335,6 +342,7 @@ func (p *Pool) CompletionChecker() bool {
 	return false
 }
 
+// Close ends collector and closes the pool
 func (p *Pool) Close() {
 
 	if p.closed {

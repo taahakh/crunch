@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/taahakh/speed/traverse"
 	"golang.org/x/net/html/charset"
@@ -19,120 +18,10 @@ const (
 	sleepTime                = 1000
 )
 
-// ---------------------------------------------------------------------------------
-
-// Handles retries, individual request timeouts and cancellations,
-// all request cancellations
-
-// request - number of request to push per batch
-
-// size - how many requests per batch
-// gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
-func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
-
-	var dur time.Duration
-	var handle func(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
-	var done func() bool
-
-	// check if time duration is empty
-	if gap != "" {
-		t, err := time.ParseDuration(gap)
-		if err != nil {
-			return
-		}
-		dur = t
-	}
-
-	if dur == 0 {
-		return
-	}
-
-	var wg sync.WaitGroup
-	retry := make(chan *Send, size)
-	end := make(chan struct{})
-
-	collectionChecker(rc)
-
-	result := rc.Result
-	cancel := rc.Cancel
-	complete := rc.Complete
-	ms := rc.muxrs
-	ms.SetChannel(retry)
-
-	if handler != nil {
-		handle = handler.Handle
-		done = handler.Done
-	} else {
-		dh := &DefaultBatchHandler{done: len(rc.RS)}
-		handle = dh.Handle
-		done = dh.Done
-	}
-
-	q := Queue{}
-	q.Make(rc.RS)
-
-	wg.Add(1)
-
-	go func() {
-		// We go thorugh the list first without doing the retries
-		for {
-			q.View()
-			select {
-			case <-end:
-				return
-			default:
-				for i := 0; i < size; i++ {
-					item := q.Pop()
-					if item == nil {
-						continue
-					}
-					wg.Add(1)
-					go HandleRequest(true, item, retry, result, ms, &wg)
-				}
-
-				time.Sleep(dur)
-			}
-
-		}
-	}()
-
-	go func() {
-
-		for {
-			time.Sleep(time.Millisecond * sleepTime)
-
-			select {
-			case item := <-retry:
-				handle(item, &wg, &q, rc)
-				break
-			case <-cancel:
-				end <- struct{}{}
-				wg.Done()
-				return
-			default:
-				if done() {
-					end <- struct{}{}
-					wg.Done()
-					return
-				}
-			}
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		if complete != nil {
-			*complete <- rc.Identity
-		}
-		rc.Done = true
-		return
-	}()
-
-	return
-}
-
 // ----------------------------------------------------------
 
+// CompleteSession handles retries and changing headers and proxies
+// Handlers can be used to handle unsuccessful requests
 func CompleteSession(rc *Collection, handle CompleteHandler) {
 
 	var wg sync.WaitGroup
@@ -240,39 +129,7 @@ loop:
 
 // ----------------------------------------------------------
 
-// enforce
-func enforceTrue(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
-	resp, err := client.Do(request)
-
-	if err != nil {
-		req.Decrement()
-		retry <- req
-		return nil, errors.New(ProxyConnectionPoolError)
-	}
-
-	return resp, nil
-}
-
-// notEnforce
-func enforceFalse(client *http.Client, request *http.Request) (*http.Response, error) {
-	var cli http.Client
-
-	if client != nil {
-		cli = *client
-	} else {
-		cli = http.Client{}
-	}
-
-	resp, err := cli.Do(request)
-
-	if err != nil {
-		return nil, errors.New(ProxyConnectionPoolError)
-	}
-
-	return resp, nil
-}
-
-// HandleRequest
+// HandleRequest carries out request and also runs scrape
 func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *MutexSend, wg *sync.WaitGroup) {
 
 	var resp *http.Response
@@ -323,8 +180,43 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 	return
 }
 
+// enforce makes it so that retries/header change/ip change are enforced
+func enforceTrue(client *http.Client, request *http.Request, req *Send, retry chan *Send) (*http.Response, error) {
+	resp, err := client.Do(request)
+
+	if err != nil {
+		req.Decrement()
+		retry <- req
+		return nil, errors.New(ProxyConnectionPoolError)
+	}
+
+	return resp, nil
+}
+
+// notEnforce makes it so that only one single request is made per item
+func enforceFalse(client *http.Client, request *http.Request) (*http.Response, error) {
+	var cli http.Client
+
+	if client != nil {
+		cli = *client
+	} else {
+		cli = http.Client{}
+	}
+
+	resp, err := cli.Do(request)
+
+	if err != nil {
+		return nil, errors.New(ProxyConnectionPoolError)
+	}
+
+	return resp, nil
+}
+
 // ----------------------------------------------------------
 
+// changeClient changes client if condition requires to do so
+//
+// NOTE - This default implementation should be changed using Handlers
 func changeClient(client *Send, list []*http.Client, counter int) int {
 
 	newCli := list[counter]
@@ -339,6 +231,9 @@ func changeClient(client *Send, list []*http.Client, counter int) int {
 	return counter
 }
 
+// changeHeaders changes headers if conditions requires to do so
+//
+// NOTE - This default implementation should be changed using Handlers
 func changeHeaders(req *http.Request, jar *Jar, count int) int {
 	req.Header = *jar.Headers[count]
 	count++
@@ -348,9 +243,9 @@ func changeHeaders(req *http.Request, jar *Jar, count int) int {
 	return count
 }
 
-// if true, it means that the scrape was unsuccessful
-// if false, scrape successful
-
+// RunScrape runs the scraping method/document
+// if false, it means that the scrape was unsuccessful
+// if true, scrape successful
 func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bool) (bool, error) {
 	defer r.Body.Close()
 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
@@ -373,20 +268,15 @@ func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bo
 	return m(pack), err
 }
 
+// collectionChecker fills in any missing structs needed to run the collection
+//
+// NOTE - This is primarily used to make sure that all request methods e.g. CompleteSession, Simple
+// can be run without using a Pool
+// If the correct components are not added to the collection, the intended scrape might not go as planned
 func collectionChecker(rc *Collection) *Collection {
 	if rc.Cancel == nil {
 		rc.Cancel = make(chan struct{}, 1)
 	}
-
-	// if rc.Notify == nil {
-	// 	temp := make(chan string, 1)
-	// 	rc.Notify = &temp
-	// }
-
-	// if rc.Complete == nil {
-	// 	temp := make(chan string, 1)
-	// 	rc.Complete = &temp
-	// }
 
 	if rc.RJ == nil {
 		rc.RJ = &Jar{}
@@ -406,25 +296,3 @@ func collectionChecker(rc *Collection) *Collection {
 
 	return rc
 }
-
-// ----------------------------------------------------------
-
-// func defaultRequestHandler(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) (int, int) {
-// 	switch {
-// 	case item.Caught:
-// 		wg.Add(1)
-// 		c = changeHeaders(item.Request.Request, rc.RJ, c)
-// 		item.Caught = false
-// 		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
-// 		break
-// 	case item.Retries == 0:
-// 		break
-// 	default:
-// 		wg.Add(1)
-// 		h = changeClient(item, rc.RJ.Clients, h)
-// 		go HandleRequest(true, item, retry, rc.Result, rc.muxrs, wg)
-// 		break
-// 	}
-
-// 	return c, h
-// }
