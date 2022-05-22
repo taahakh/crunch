@@ -259,7 +259,7 @@ func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bo
 
 	item := traverse.HTMLDocBytes(&bytes)
 	pack := Result{}
-	pack = pack.New(&item, res, ms)
+	pack = pack.New(item, res, ms)
 	if m == nil {
 		return true, err
 	}

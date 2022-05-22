@@ -20,7 +20,7 @@ type Store struct {
 	//
 	// Any data that is saved should be added to a self-made struct
 	// It is up to the developer to type cast the structs in order to retrieve the information
-	res []*interface{}
+	res []interface{}
 
 	// counter tracks the number of results
 	//
@@ -94,7 +94,7 @@ type Send struct {
 // You can scrape, store scraped data and request new links
 type Result struct {
 	// document is the struct that allows scraping of webpages
-	document *traverse.HTMLDocument
+	document traverse.HTMLDocument
 
 	// save saves the scraped data/any data in the form of structs
 	save *Store
@@ -305,12 +305,12 @@ func (rs *Send) SetHeadersStruct(header *http.Header) {
 func (c *Store) Add(b interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.res = append(c.res, &b)
+	c.res = append(c.res, b)
 	c.counter++
 }
 
 // Read returns interface list full of structs
-func (c *Store) Read() []*interface{} {
+func (c *Store) Read() []interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.res
@@ -324,7 +324,7 @@ func (c *Store) Count() int {
 /* ?Result ----------------------------------------------------- */
 
 // New instantiates Result struct with scraping document, saving struct, and mutexed sending requests
-func (rp Result) New(doc *traverse.HTMLDocument, save *Store, mutexSend *MutexSend) Result {
+func (rp Result) New(doc traverse.HTMLDocument, save *Store, mutexSend *MutexSend) Result {
 	rp.document = doc
 	rp.save = save
 	rp.ms = mutexSend
@@ -332,11 +332,11 @@ func (rp Result) New(doc *traverse.HTMLDocument, save *Store, mutexSend *MutexSe
 }
 
 // Document returns scraped document
-func (rp Result) Document() *traverse.HTMLDocument {
+func (rp Result) Document() traverse.HTMLDocument {
 	return rp.document
 }
 
-// Save saves to list
+// Save to list
 func (rp Result) Save(item interface{}) {
 	rp.save.Add(item)
 }

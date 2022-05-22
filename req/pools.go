@@ -93,7 +93,7 @@ func (p *Pool) Add(col string, rc *Collection) {
 		rc.Cancel = make(chan struct{})
 		rc.Result = &Store{
 			mu:      sync.Mutex{},
-			res:     make([]*interface{}, 0),
+			res:     make([]interface{}, 0),
 			counter: 0,
 		}
 		rc.SetMuxSend()
@@ -172,7 +172,7 @@ func (p *Pool) CancelCollection(id string) (*Store, error) {
 
 // PopIfCompleted Pops from collection and returns the scraped data
 // ------ RENAME
-func (p *Pool) PopIfCompleted(id string) ([]*interface{}, error) {
+func (p *Pool) PopIfCompleted(id string) ([]interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if p.isFinished(id) {
@@ -190,7 +190,7 @@ func (p *Pool) isFinished(id string) bool {
 }
 
 // BlockUntilComplete will block the current function until the collection has been completed
-func (p *Pool) BlockUntilComplete(id string) []*interface{} {
+func (p *Pool) BlockUntilComplete(id string) []interface{} {
 	for {
 		res, err := p.PopIfCompleted(id)
 		if err == nil {
