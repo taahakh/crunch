@@ -2,7 +2,6 @@ package req
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -11,14 +10,21 @@ import (
 // PoolLook is mainly to interface Pool struct
 // Used to prevent other usage with the pool
 type PoolLook interface {
+
+	// Closes pool
 	Close()
+
+	// Returns the collections once all collections are finished
 	Collections() map[string]*Collection
 }
 
 // PoolSettings handles what to do when collections are all finished
 // and what to do when completed collection are just finished
 type PoolSettings struct {
-	AllCollectionsCompleted      func(p PoolLook)
+	// Runs when all collections have been completed
+	AllCollectionsCompleted func(p PoolLook)
+
+	// Runs when the current finished collection is completed
 	IncomingCompletedCollections func(rc *Collection)
 }
 
@@ -275,19 +281,13 @@ func (p *Pool) collector(settings PoolSettings) {
 	for {
 		select {
 		case y := <-p.complete:
-			// fmt.Println("COMPLETED: ", y)
-			// pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 			// if we want to do something when the collection has finished with the scraped data
 			p.mu.Lock()
 			p.finished[y] = struct{}{}
 			if settings.IncomingCompletedCollections != nil {
 				settings.IncomingCompletedCollections(p.collections[y])
-				// removes collection from the pool. The name will still exist in finished array
-				// but gone for good
-				// p.rem(y)
 			}
 			if len(p.finished) == len(p.collections) {
-				fmt.Println("finishd")
 				if settings.AllCollectionsCompleted != nil {
 					p.mu.Unlock()
 					settings.AllCollectionsCompleted(p)
@@ -298,8 +298,6 @@ func (p *Pool) collector(settings PoolSettings) {
 			break
 		case <-p.close:
 			return
-			// default:
-			// 	break
 		}
 	}
 }
@@ -354,8 +352,6 @@ func (p *Pool) Close() {
 	for !p.CompletionChecker() {
 		time.Sleep(time.Second * 1)
 	}
-
-	// fmt.Println("Finished checking -> equls ")
 
 	// Closing collector
 	p.close <- struct{}{}

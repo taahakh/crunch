@@ -3,7 +3,6 @@ package req
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -268,7 +267,7 @@ func MakeSends(rc []*http.Client, ri []*RequestItem, retries int, method func(rp
 func SOCKS5Client(ip string) *http.Client {
 	dials, err := proxy.SOCKS5("tcp", ip, nil, proxy.Direct)
 	if err != nil {
-		fmt.Println("error connecting to proxy", err)
+		log.Println("error connecting to proxy", err)
 	}
 	transport := &http.Transport{
 		Dial: dials.Dial,

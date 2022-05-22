@@ -8,7 +8,7 @@ import (
 // Batch sends out requests in grouped batches.
 // size - how many requests per batch
 // gap - how long until to send next batch. if the time gap = 0, then we will return. there needs to be a timed batch
-// THIS DOES NOT WORK - THERE ARE KNOWN ERRORS
+// THIS DOES WORK BUT IN A LIMITED FASHION - THERE ARE KNOWN ERRORS
 func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 
 	var dur time.Duration

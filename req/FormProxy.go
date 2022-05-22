@@ -2,7 +2,6 @@ package req
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -153,7 +152,6 @@ func HandleRequest(enforce bool, req *Send, retry chan *Send, rr *Store, ms *Mut
 		return
 	}
 
-	fmt.Println("----------------------------Success-------------------------------")
 	defer resp.Body.Close()
 
 	data, err := RunScrape(resp, rr, ms, req.Scrape)
