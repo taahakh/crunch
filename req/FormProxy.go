@@ -191,7 +191,7 @@ func enforceTrue(client *http.Client, request *http.Request, req *Send, retry ch
 	return resp, nil
 }
 
-// notEnforce makes it so that only one single request is made per item
+// notEnforce makes it so that only one single request is made per item/ no proxies/clients are not needed
 func enforceFalse(client *http.Client, request *http.Request) (*http.Response, error) {
 	var cli http.Client
 

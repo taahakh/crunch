@@ -1,0 +1,1 @@
+go test -benchmem -memprofile mem.prof -cpuprofile cpu.prof -run=^$ -bench ^BenchmarkScrape$ github.com\taahakh\speed\benchmark -benchtime=20s
