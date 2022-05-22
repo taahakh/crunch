@@ -11,6 +11,8 @@ import (
 // THIS DOES WORK BUT IN A LIMITED FASHION - THERE ARE KNOWN ERRORS
 func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 
+	// Prevent usage of Batch
+	return
 	var dur time.Duration
 	var handle func(item *Send, wg *sync.WaitGroup, q *Queue, rc *Collection)
 	var done func() bool
