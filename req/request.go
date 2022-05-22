@@ -144,10 +144,10 @@ type Collection struct {
 
 	// Notify tells the pool that this collection REQUESTS has finally stopped running.
 	// Sends the identity of this collection back to the pool
-	Notify *chan string
+	Notify chan string
 
 	// Complete tells the pool that this collection has finished
-	Complete *chan string
+	Complete chan string
 
 	// Start is used for cancelling collections. We need to know if the process has started or it will hang when trying to cancel
 	Start bool

@@ -52,7 +52,7 @@ func CompleteSession(rc *Collection, handle CompleteHandler) {
 	go func() {
 		wg.Wait()
 		if complete != nil {
-			*complete <- rc.Identity
+			complete <- rc.Identity
 		}
 		close(end)
 		rc.Done = true
@@ -102,7 +102,7 @@ func Simple(rc *Collection) {
 		wg.Wait()
 		close(finish)
 		if complete != nil {
-			*complete <- rc.Identity
+			complete <- rc.Identity
 		}
 		// CONFLICT
 		rc.Done = true

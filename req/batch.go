@@ -105,7 +105,7 @@ func Batch(rc *Collection, size int, gap string, handler BatchHandler) {
 		wg.Wait()
 		// cancel <- struct{}{}
 		if complete != nil {
-			*complete <- rc.Identity
+			complete <- rc.Identity
 		}
 		rc.Done = true
 		return

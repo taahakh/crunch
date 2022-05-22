@@ -89,7 +89,7 @@ func (p *Pool) Add(col string, rc *Collection) {
 	defer p.mu.Unlock()
 	if _, ok := p.collections[col]; !ok {
 		rc.Identity = col
-		rc.Complete = &p.complete
+		rc.Complete = p.complete
 		rc.Cancel = make(chan struct{})
 		rc.Result = &Store{
 			mu:      sync.Mutex{},
