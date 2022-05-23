@@ -26,7 +26,7 @@ func BenchmarkScrape(b *testing.B) {
 	if err != nil {
 		return
 	}
-	doc := traverse.HTMLDoc(bytes.NewReader(file))
+	doc, _ := traverse.HTMLDoc(bytes.NewReader(file))
 
 	for n := 0; n < b.N; n++ {
 		doc.FindStrictlyOnce("a")

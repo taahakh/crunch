@@ -15,14 +15,18 @@ type Attribute struct {
 
 // A wrapper for a number of functions
 // Possibility of being depreciated soon
-type NodeList struct {
-	Nodes []*html.Node // lets users have their freedom to manipulate the raw html.Node
-}
+// type NodeList struct {
+// 	Nodes []*html.Node // lets users have their freedom to manipulate the raw html.Node
+// }
+
+type NodeList []*html.Node
 
 // A wrapper to access functions
 type Node struct {
 	Node *html.Node
 }
+
+// type Node *html.Node
 
 var (
 	f func(r *html.Node, s Search) bool
