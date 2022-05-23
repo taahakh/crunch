@@ -78,7 +78,7 @@ loop:
 
 // Simple handles requests normally. It can take in proxied clients or not and doesn't
 // allow retries.
-func Simple(rc *Collection) {
+func Run(rc *Collection) {
 	var wg sync.WaitGroup
 
 	// Retry functionality is set to continue scraping new calls and NOT failed calls

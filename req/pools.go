@@ -172,7 +172,7 @@ func (p *Pool) CancelCollection(id string) (*Store, error) {
 
 // PopIfCompleted Pops from collection and returns the scraped data
 // ------ RENAME
-func (p *Pool) PopIfCompleted(id string) ([]interface{}, error) {
+func (p *Pool) ReturnIfCompleted(id string) ([]interface{}, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if p.isFinished(id) {
@@ -192,7 +192,7 @@ func (p *Pool) isFinished(id string) bool {
 // BlockUntilComplete will block the current function until the collection has been completed
 func (p *Pool) BlockUntilComplete(id string) []interface{} {
 	for {
-		res, err := p.PopIfCompleted(id)
+		res, err := p.ReturnIfCompleted(id)
 		if err == nil {
 			return res
 		}
@@ -268,12 +268,23 @@ func (p *Pool) Run(id string, method RequestMethods, n int) {
 		go CompleteSession(p.collections[id], nil)
 		break
 	case Method_Batch:
-		go Batch(p.collections[id], 2, "3s", nil)
+		// Known errors with batch
+		// go Batch(p.collections[id], 2, "3s", nil)
 		break
 	case Method_Simple:
-		go Simple(p.collections[id])
+		go Run(p.collections[id])
 		break
 	}
+}
+
+func (p *Pool) RunSimple(id string) {
+	p.collections[id].Start = true
+	go Run(p.collections[id])
+}
+
+func (p *Pool) RunComplete(id string, handler CompleteHandler) {
+	p.collections[id].Start = true
+	go CompleteSession(p.collections[id], handler)
 }
 
 // Garbage collector for the pool
