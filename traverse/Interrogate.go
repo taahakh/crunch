@@ -7,11 +7,16 @@ import (
 	"golang.org/x/net/html"
 )
 
+// All searches are case sensitive. It must be exact
+
 // For selector and Attr values
 type Attribute struct {
 	Name  string
 	Value string
 }
+
+// type AttributeMap map[string][]string
+type AttributeMap map[string]string
 
 // A wrapper for a number of functions
 // Possibility of being depreciated soon
@@ -25,8 +30,6 @@ type NodeList []*html.Node
 type Node struct {
 	Node *html.Node
 }
-
-// type Node *html.Node
 
 var (
 	f func(r *html.Node, s Search) bool
@@ -172,7 +175,8 @@ func checkTag(tag, nodeTag string) bool {
 // given must match the same amount of node attributes
 func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 	var nodes = make([]*html.Node, 1)
-	selectorAttrlen := len(s.Attr) + len(s.Selector)
+	sLen := len(s.Attr)
+	selectorAttrlen := sLen + len(s.Selector)
 	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
 			if len(r.Attr) == selectorAttrlen {
@@ -182,7 +186,7 @@ func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 						matchedAttr++
 					}
 				}
-				if matchedAttr == len(r.Attr) && matchedAttr == len(s.Attr) && matchedAttr > 0 {
+				if matchedAttr == len(r.Attr) && matchedAttr == sLen && matchedAttr > 0 {
 					nodes = append(nodes, r)
 					if once {
 						return true
@@ -208,18 +212,6 @@ func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 }
 
 // --------------------------------------------------------------------------------------------
-
-// func ContainsAttrString(str, toCompare string) bool {
-// 	if words := strings.Fields(str); len(words) > 0 {
-// 		// splits atrribute values
-// 		for _, y := range words {
-// 			if toCompare == y {
-// 				return true
-// 			}
-// 		}
-// 	}
-// 	return false
-// }
 
 // Takes already word list from search struct and now taking in
 // node attr string. Comparing
