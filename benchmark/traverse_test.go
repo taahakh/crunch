@@ -30,8 +30,13 @@ func BenchmarkScrape(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		// doc.FindStrictly("[id='HLCXComparisonWidget_feature_div', class='celwidget', data-feature-name='HLCXComparisonWidget', data-csa-c-type='widget', data-csa-c-slot-id='.12', data-csa-c-component='HLCXComparisonWidget', data-csa-c-cs-type='DETAIL_PAGE_DYNAMIC', data-csa-c-id='j1i5cn-olyvyi-gt0c00-y3wchp', data-cel-widget='HLCXComparisonWidget_feature_div']")
-		doc.FindStrictly("[id='HLCXComparisonWidget_feature_div', class='celwidget', data-feature-name='HLCXComparisonWidget', data-csa-c-type='widget', data-csa-c-slot-id='.12', data-csa-c-component='HLCXComparisonWidget', data-csa-c-cs-type='DETAIL_PAGE_DYNAMIC', data-csa-c-id='j1i5cn-olyvyi-gt0c00-y3wchp', data-cel-widget='HLCXComparisonWidget_feature_div', alpha='']")
-		// doc.Find("[id='HLCXComparisonWidget_feature_div', class='celwidget', data-feature-name='HLCXComparisonWidget', data-csa-c-type='widget', data-csa-c-slot-id='.12', data-csa-c-component='HLCXComparisonWidget', data-csa-c-cs-type='DETAIL_PAGE_DYNAMIC', data-csa-c-id='j1i5cn-olyvyi-gt0c00-y3wchp', data-cel-widget='HLCXComparisonWidget_feature_div']")
+		doc.FindStrictlyOnce("[id='HLCXComparisonWidget_feature_div', class='celwidget', data-feature-name='HLCXComparisonWidget', data-csa-c-type='widget', data-csa-c-slot-id='.12', data-csa-c-component='HLCXComparisonWidget', data-csa-c-cs-type='DETAIL_PAGE_DYNAMIC', data-csa-c-id='j1i5cn-olyvyi-gt0c00-y3wchp', data-cel-widget='HLCXComparisonWidget_feature_div']")
+		// doc.FindStrictly("[id='HLCXComparisonWidget_feature_div', class='celwidget', data-feature-name='HLCXComparisonWidget', data-csa-c-type='widget', data-csa-c-slot-id='.12', data-csa-c-component='HLCXComparisonWidget', data-csa-c-cs-type='DETAIL_PAGE_DYNAMIC', data-csa-c-id='j1i5cn-olyvyi-gt0c00-y3wchp', data-cel-widget='HLCXComparisonWidget_feature_div', alpha='']")
+		// doc.Find("[id='HLCXComparisonWidget_feature_div', class='celwidget']")
+		// doc.Find("[id='HLCXComparisonWidget_feature_div']")
+		// doc.FindOnce("[id='HLCXComparisonWidget_feature_div']")
+		// doc.Query("[id='HLCXComparisonWidget_feature_div']")
+		// doc.QueryOnce("[id='HLCXComparisonWidget_feature_div']")
 	}
 }
 

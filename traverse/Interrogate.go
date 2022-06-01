@@ -253,10 +253,6 @@ func attrvalCheck(r html.Attribute, s Search) bool {
 // --------------------------------------------------------------------------------------------
 //  HTML parsing. Independeant from the DocumentGroup
 
-// func Parse(r io.Reader) (*html.Node, error) {
-// 	return html.Parse(r)
-// }
-
 func EasyParse(s *[]byte) (*html.Node, error) {
 	return html.Parse(bytes.NewReader(*s))
 }
