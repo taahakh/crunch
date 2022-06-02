@@ -265,7 +265,7 @@ func (p *Pool) Run(id string, method RequestMethods, n int) {
 	p.collections[id].Start = true
 	switch method {
 	case Method_Complete:
-		go CompleteSession(p.collections[id], nil)
+		go Session(p.collections[id], nil)
 		break
 	case Method_Batch:
 		// Known errors with batch
@@ -282,9 +282,9 @@ func (p *Pool) RunSimple(id string) {
 	go Run(p.collections[id])
 }
 
-func (p *Pool) RunComplete(id string, handler CompleteHandler) {
+func (p *Pool) RunSession(id string, handler CompleteHandler) {
 	p.collections[id].Start = true
-	go CompleteSession(p.collections[id], handler)
+	go Session(p.collections[id], handler)
 }
 
 // Garbage collector for the pool

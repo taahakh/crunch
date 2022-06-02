@@ -13,16 +13,11 @@ func ReadPCCSV(file string) (csvReader [][]string) {
 
 	csvFile, err := os.Open(file)
 	if err != nil {
-		log.Println(err, "---ReadPCCSV-os.Open")
+		log.Println(err, "--ReadPCCSV-os.Open")
 	}
 	defer csvFile.Close()
 
 	r := csv.NewReader(csvFile)
-	// csvReader, err = r.ReadAll()
-	// if err != nil {
-	// 	log.Println("ok, breakage")
-	// }
-	// csvReader = make([][]string, 0)
 
 	for {
 		record, err := r.Read()
@@ -31,9 +26,9 @@ func ReadPCCSV(file string) (csvReader [][]string) {
 			break
 		}
 		if err != nil {
-			log.Println("This shit aint working")
+			log.Println(err, "Error with reading file")
 		}
-		// item := [][]string{{record[0]}}
+
 		csvReader = append(csvReader, []string{record[1]})
 
 	}
@@ -71,23 +66,23 @@ func ReadCSV(file string) (csvReader [][]string, err error) {
 	return csvReader, err
 }
 
-func ReadCSVpointer(file string) (cr *[][]string, err error) {
-	// we are opening the csv file, checking if it exists and making sure it closes in the end
-	csvFile, err := os.Open(file)
-	if err != nil {
-		log.Println(err)
-	}
-	defer csvFile.Close()
+// func ReadCSVpointer(file string) (cr *[][]string, err error) {
+// 	// we are opening the csv file, checking if it exists and making sure it closes in the end
+// 	csvFile, err := os.Open(file)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	defer csvFile.Close()
 
-	// reads the csv files in rows. each row is in an array
-	csvReader, err := csv.NewReader(csvFile).ReadAll()
-	if err != nil {
-		log.Println(err)
-	}
+// 	// reads the csv files in rows. each row is in an array
+// 	csvReader, err := csv.NewReader(csvFile).ReadAll()
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
 
-	cr = &csvReader
-	return cr, err
-}
+// 	cr = &csvReader
+// 	return cr, err
+// }
 
 func WriteCSV(file string, records [][]string) (state bool, err error) {
 
@@ -114,27 +109,27 @@ func WriteCSV(file string, records [][]string) (state bool, err error) {
 	return state, err
 }
 
-func WriteCSVpointer(file string, rec *[][]string) {
-	// creates the file
-	csvFile, err := os.Create(file)
-	if err != nil {
-		log.Println("Couldn't open")
-	}
-	defer csvFile.Close()
+// func WriteCSVpointer(file string, rec *[][]string) {
+// 	// creates the file
+// 	csvFile, err := os.Create(file)
+// 	if err != nil {
+// 		log.Println("Couldn't open")
+// 	}
+// 	defer csvFile.Close()
 
-	csvWriter := csv.NewWriter(csvFile)
-	defer csvWriter.Flush()
+// 	csvWriter := csv.NewWriter(csvFile)
+// 	defer csvWriter.Flush()
 
-	// writes each record in the file
-	// state tells the end user if this transactions was sucessful
-	// state = true
-	for _, record := range *rec {
-		if csvWriter.Write(record); err != nil {
-			log.Println(err)
-		}
-	}
+// 	// writes each record in the file
+// 	// state tells the end user if this transactions was sucessful
+// 	// state = true
+// 	for _, record := range *rec {
+// 		if csvWriter.Write(record); err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
 
-}
+// }
 
 func AppendCSVpointer(file string, rec *[][]string) {
 	// creates the file
@@ -182,6 +177,7 @@ func SplitCSV(folder, fileBreak, fileName string) {
 	data, err := ReadCSV(fileBreak)
 	if err != nil {
 		log.Println("Failed to load document")
+		return
 	}
 
 	length := len(data)
@@ -194,7 +190,8 @@ func SplitCSV(folder, fileBreak, fileName string) {
 		fileNumber++
 		tempFileName := folder + fileName + strconv.Itoa(int(fileNumber)) + ".csv"
 
-		WriteCSVpointer(tempFileName, &slice)
+		// WriteCSVpointer(tempFileName, &slice)
+		WriteCSV(tempFileName, slice)
 
 		if toBreak {
 			break

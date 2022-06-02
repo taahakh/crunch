@@ -8,12 +8,8 @@ import (
 )
 
 var (
-	// dfs func(x *html.Node, data string)
-
 	MinHeaderList = make(map[string]string)
 	HeaderList    = make([]Headers, 0)
-	// DocumentList  = make([]Doc, 0)
-	// TagTrackerList = make([]TagTracker, 0)
 )
 
 type Headers struct {

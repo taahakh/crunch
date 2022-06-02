@@ -21,7 +21,7 @@ const (
 
 // CompleteSession handles retries and changing headers and proxies
 // Handlers can be used to handle unsuccessful requests
-func CompleteSession(rc *Collection, handle CompleteHandler) {
+func Session(rc *Collection, handle CompleteHandler) {
 
 	var wg sync.WaitGroup
 	var handler func(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
