@@ -2,6 +2,7 @@ package traverse
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -81,6 +82,9 @@ func query(r *html.Node, s Search, once bool) []*html.Node {
 	}
 
 	f(r, s)
+
+	fmt.Println(nodes)
+
 	return nodes
 }
 
@@ -125,7 +129,7 @@ func findAttr(r []html.Attribute, s Search) bool {
 // the values given must be exact in order to find node
 func find(r *html.Node, s Search, once bool) []*html.Node {
 	// var f func(r *html.Node, s Search) bool
-	nodes := make([]*html.Node, 1)
+	nodes := make([]*html.Node, 0, 1)
 
 	f = func(r *html.Node, s Search) bool {
 		if r.Type == html.ElementNode {
@@ -161,6 +165,8 @@ func find(r *html.Node, s Search, once bool) []*html.Node {
 
 	f(r, s)
 
+	fmt.Println(nodes)
+
 	return nodes
 }
 
@@ -173,11 +179,51 @@ func checkTag(tag, nodeTag string) bool {
 
 // Functions the same exact way as Find() but the number of attributes
 // given must match the same amount of node attributes
+// func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
+// 	var nodes = make([]*html.Node, 1)
+// 	sLen := len(s.Attr)
+// 	selectorAttrlen := sLen + len(s.Selector)
+// 	f = func(r *html.Node, s Search) bool {
+// 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
+// 			if len(r.Attr) == selectorAttrlen {
+// 				matchedAttr := 0
+// 				for _, x := range r.Attr {
+// 					if attrvalCheck(x, s) {
+// 						matchedAttr++
+// 					}
+// 				}
+// 				if matchedAttr == len(r.Attr) && matchedAttr == sLen && matchedAttr > 0 {
+// 					nodes = append(nodes, r)
+// 					if once {
+// 						return true
+// 					}
+// 				}
+// 				matchedAttr = 0
+// 			}
+
+// 		}
+
+// 		for c := r.FirstChild; c != nil; c = c.NextSibling {
+// 			b := f(c, s)
+// 			if b {
+// 				return true
+// 			}
+// 		}
+// 		return false
+// 	}
+
+// 	f(r, s)
+
+// 	return nodes
+// }
+
 func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
-	var nodes = make([]*html.Node, 1)
+	var nodes = make([]*html.Node, 0, 1)
+	var fu func(r *html.Node, s Search)
 	sLen := len(s.Attr)
 	selectorAttrlen := sLen + len(s.Selector)
-	f = func(r *html.Node, s Search) bool {
+	caught := false
+	fu = func(r *html.Node, s Search) {
 		if r.Type == html.ElementNode && checkTag(s.Tag, r.Data) {
 			if len(r.Attr) == selectorAttrlen {
 				matchedAttr := 0
@@ -189,7 +235,8 @@ func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 				if matchedAttr == len(r.Attr) && matchedAttr == sLen && matchedAttr > 0 {
 					nodes = append(nodes, r)
 					if once {
-						return true
+						caught = true
+						return
 					}
 				}
 				matchedAttr = 0
@@ -198,15 +245,21 @@ func findStrictly(r *html.Node, s Search, once bool) []*html.Node {
 		}
 
 		for c := r.FirstChild; c != nil; c = c.NextSibling {
-			b := f(c, s)
-			if b {
-				return true
+			// b := f(c, s)
+			fu(c, s)
+			if caught {
+				return
 			}
+			// if b {
+			// 	return
+			// }
 		}
-		return false
+		// return
 	}
 
-	f(r, s)
+	fu(r, s)
+
+	fmt.Println(nodes)
 
 	return nodes
 }
