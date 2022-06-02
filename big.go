@@ -1,4 +1,4 @@
-package speed
+package crunch
 
 var htmlText string = `
 <!DOCTYPE html>

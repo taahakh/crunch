@@ -1,0 +1,203 @@
+// func ReadPCCSV(file string) (csvReader [][]string) {
+
+// 	csvFile, err := os.Open(file)
+// 	if err != nil {
+// 		log.Println(err, "--ReadPCCSV-os.Open")
+// 	}
+// 	defer csvFile.Close()
+
+// 	r := csv.NewReader(csvFile)
+
+// 	for {
+// 		record, err := r.Read()
+// 		// breaks out of while loop when reaches end of file
+// 		if err == io.EOF {
+// 			break
+// 		}
+// 		if err != nil {
+// 			log.Println(err, "Error with reading file")
+// 		}
+
+// 		csvReader = append(csvReader, []string{record[1]})
+
+// 	}
+
+// 	return csvReader
+
+// }
+
+// func WritePCCSV(file string, cvList [][]string) {
+// 	// creates the file
+// 	csvFile, err := os.Create(file)
+// 	if err != nil {
+// 		log.Println("Couldn't open")
+// 	}
+// 	defer csvFile.Close()
+
+// 	csvWriter := csv.NewWriter(csvFile)
+// 	csvWriter.WriteAll(cvList)
+// }
+
+// func ReadCSVpointer(file string) (cr *[][]string, err error) {
+// 	// we are opening the csv file, checking if it exists and making sure it closes in the end
+// 	csvFile, err := os.Open(file)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	defer csvFile.Close()
+
+// 	// reads the csv files in rows. each row is in an array
+// 	csvReader, err := csv.NewReader(csvFile).ReadAll()
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+
+// 	cr = &csvReader
+// 	return cr, err
+// }
+
+
+// func WriteCSVpointer(file string, rec *[][]string) {
+// 	// creates the file
+// 	csvFile, err := os.Create(file)
+// 	if err != nil {
+// 		log.Println("Couldn't open")
+// 	}
+// 	defer csvFile.Close()
+
+// 	csvWriter := csv.NewWriter(csvFile)
+// 	defer csvWriter.Flush()
+
+// 	// writes each record in the file
+// 	// state tells the end user if this transactions was sucessful
+// 	// state = true
+// 	for _, record := range *rec {
+// 		if csvWriter.Write(record); err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+
+// }
+
+// func AppendCSVpointer(file string, rec *[][]string) {
+// 	// creates the file
+// 	csvFile, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+// 	if err != nil {
+// 		log.Println("Couldn't open APPEND")
+// 	}
+// 	defer csvFile.Close()
+
+// 	csvWriter := csv.NewWriter(csvFile)
+// 	defer csvWriter.Flush()
+
+// 	// writes each record in the file
+// 	// state tells the end user if this transactions was sucessful
+// 	// state = true
+// 	for _, record := range *rec {
+// 		if csvWriter.Write(record); err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
+// }
+
+// calculate slice range - make sure it doesn't go overboard with the length
+func calculateRange(lower, upper, length int, stage bool, rows int) (int, int, int, bool) {
+	if length-upper < rows {
+		lower = upper
+		upper = length
+		stage = true
+	} else {
+		lower = upper
+		upper += rows
+	}
+
+	return lower, upper, length, stage
+}
+
+// limited to only 500 rows per file
+// no naming system implemented
+// only splitting
+func SplitCSV(folder, fileBreak, fileName string) {
+
+	const rows int = 500
+	var fileNumber int8 = 0
+	var lowerBound, upperBound int = 0, rows
+	var toBreak bool = false
+
+	data, err := ReadCSV(fileBreak)
+	if err != nil {
+		log.Println("Failed to load document")
+		return
+	}
+
+	length := len(data)
+	lowerBound, upperBound, length, toBreak = calculateRange(lowerBound, upperBound, length, toBreak, rows)
+
+	for {
+
+		slice := data[lowerBound:upperBound]
+
+		fileNumber++
+		tempFileName := folder + fileName + strconv.Itoa(int(fileNumber)) + ".csv"
+
+		// WriteCSVpointer(tempFileName, &slice)
+		WriteCSV(tempFileName, slice)
+
+		if toBreak {
+			break
+		}
+
+		lowerBound, upperBound, length, toBreak = calculateRange(lowerBound, upperBound, length, toBreak, rows)
+	}
+
+}
+
+
+// req
+
+package speed
+
+import (
+	"io"
+	"log"
+	"net/http"
+	// "strings"
+)
+
+var (
+	MinHeaderList = make(map[string]string)
+	HeaderList    = make([]Headers, 0)
+)
+
+type Headers struct {
+	UserAgent               string
+	Accept                  string
+	AcceptLanguage          string
+	AcceptEncoding          string
+	Referer                 string
+	Connection              string
+	UpgradeInsecureRequests string
+	IfModifiedSince         string
+	IfNoneMatch             string
+	CacheControl            string
+}
+
+// returns bytes. needs to be converted to string in order to be readable to users
+func Get(url string) []byte {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Println("Failed to get LINK")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Failed to READ")
+	}
+	return body
+}
+
+// returns utf-8 string text
+func GetHtml(url string) string {
+	return string(Get(url))
+}

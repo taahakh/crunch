@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/taahakh/speed/traverse"
+	"github.com/taahakh/crunch/traverse"
 )
 
 // Store stores the results that have been successful

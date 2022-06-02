@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/taahakh/speed/traverse"
+	"github.com/taahakh/crunch/traverse"
 	"golang.org/x/net/html/charset"
 )
 

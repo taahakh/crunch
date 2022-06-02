@@ -1,4 +1,4 @@
-module github.com/taahakh/speed
+module github.com/taahakh/crunch
 
 go 1.17
 

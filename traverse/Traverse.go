@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
@@ -26,10 +25,6 @@ type HTMLDocument struct {
 	NodeList     NodeList // Current search result
 	IntialSearch bool
 	Complete     bool // All searches and data interpretation is done on one object
-}
-
-type DocumentGroup struct {
-	Collector []HTMLDocument
 }
 
 // ----------------------------------------------------------------------------------------------------------
@@ -78,51 +73,11 @@ func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
 	return HTMLDocBytes(&bytes), err
 }
 
-// if true, it means that the scrape was unsuccessful
-// if false, scrape successful
-// func HTMLDocUTF8Run(r *http.Response, res *RequestResult, m func(doc *traverse.HTMLDocument, rr *RequestResult) bool) (bool, error) {
-// 	defer r.Body.Close()
-// 	utf8set, err := charset.NewReader(r.Body, r.Header.Get("Content-Type"))
-// 	if err != nil {
-// 		log.Println("Failed utf8set")
-// 	}
-// 	bytes, err := ioutil.ReadAll(utf8set)
-// 	if err != nil {
-// 		log.Println("Failed ioutil")
-// 	}
-
-// 	item := traverse.HTMLDocBytes(&bytes)
-
-// 	return m(&item, res), err
-// }
-
 // ----------------------------------------------------------------------------------------------------------
 
 // Selects control if they are going to search once or until all found
 // Controls how data is going to be stored and returned
-
-func (h *HTMLDocument) querySelect(search string, once bool) *HTMLDocument {
-	/*
-		SHOULD BE USED FOR SMALL NUMBER OF NODES AND FOR FINDING TAGS
-
-		tag/tag(. or #)selector --> strict
-		[] --> non-strict, key-independant, key-pair attr
-		--> finds all nodes where the string is present.
-			e.g. .box will find nodes that contains this word in the class even if it has multiple classes
-		--> attr box [] can search for nodes that the attr you want
-			NOTE: Most tags for searching data will usually not have anything other than div or id
-				  This is for tags such as <link>
-			link[crossorigin]
-			link[href='style.css']
-			link[crossorigin, href='style.css']
-
-			The search is done loosely in the attr box []. It will return nodes that have the attrs but doesn't
-			mean it will strictly follow a rule to return tags that only contains those attrs
-
-		Max accepted string
-			tag.selector[attr='', attr='']
-
-	*/
+func (h *HTMLDocument) QuerySelect(search string, once bool) *HTMLDocument {
 	var tempAppend []*html.Node
 	s := FinderParser(search)
 	if !(h.IntialSearch) {
@@ -158,7 +113,7 @@ func (h *HTMLDocument) querySelect(search string, once bool) *HTMLDocument {
 	return h
 }
 
-func (h *HTMLDocument) findSelect(search string, once bool) *HTMLDocument {
+func (h *HTMLDocument) FindSelect(search string, once bool) *HTMLDocument {
 	var tempAppend []*html.Node
 	s := FinderParser(search)
 	if !(h.IntialSearch) {
@@ -193,7 +148,7 @@ func (h *HTMLDocument) findSelect(search string, once bool) *HTMLDocument {
 	return h
 }
 
-func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocument {
+func (h *HTMLDocument) FindStrictlySelect(search string, once bool) *HTMLDocument {
 	var tempAppend []*html.Node
 	s := FinderParser(search)
 	if !(h.IntialSearch) {
@@ -242,100 +197,144 @@ func (h *HTMLDocument) findStrictlySelect(search string, once bool) *HTMLDocumen
 // More convenient and code in one place
 // Individual implementation are available and should be the main way to traverse the DOM
 // Can call a function to make code neater
-
 func (h *HTMLDocument) Search(f string, search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
-	var doc *HTMLDocument
-	switch f {
-	case "query":
-		doc = h.querySelect(search, false)
-		break
-	case "queryOnce":
-		doc = h.querySelect(search, true)
-		break
-	case "find":
-		doc = h.findSelect(search, false)
-		break
-	case "findOnce":
-		doc = h.findSelect(search, true)
-		break
-	case "findStrict":
-		doc = h.findStrictlySelect(search, false)
-		break
-	case "findStrictOnce":
-		doc = h.findStrictlySelect(search, true)
-		break
-	default:
-		doc = h
-		break
-	}
+	// var doc *HTMLDocument
+	// switch f {
+	// case "query":
+	// 	doc = h.QuerySelect(search, false)
+	// 	break
+	// case "queryOnce":
+	// 	doc = h.QuerySelect(search, true)
+	// 	break
+	// case "find":
+	// 	doc = h.FindSelect(search, false)
+	// 	break
+	// case "findOnce":
+	// 	doc = h.FindSelect(search, true)
+	// 	break
+	// case "findStrict":
+	// 	doc = h.FindStrictlySelect(search, false)
+	// 	break
+	// case "findStrictOnce":
+	// 	doc = h.FindStrictlySelect(search, true)
+	// 	break
+	// default:
+	// 	doc = h
+	// 	break
+	// }
+
+	SearchSwitch(f, search, h)
 
 	if m != nil {
-		m[0](doc)
+		m[0](h)
 	}
 
-	return doc
+	return h
+}
+
+func SearchSwitch(function, search string, doc *HTMLDocument) {
+	switch function {
+	case "query":
+		doc.QuerySelect(search, false)
+		break
+	case "queryOnce":
+		doc.QuerySelect(search, true)
+		break
+	case "find":
+		doc.FindSelect(search, false)
+		break
+	case "findOnce":
+		doc.FindSelect(search, true)
+		break
+	case "findStrict":
+		doc.FindStrictlySelect(search, false)
+		break
+	case "findStrictOnce":
+		doc.FindStrictlySelect(search, true)
+		break
+	default:
+		break
+	}
 }
 
 func (h *HTMLDocument) Query(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
 
-	doc := h.querySelect(search, false)
+	doc := h.QuerySelect(search, false)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
 }
 
 func (h *HTMLDocument) QueryOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
-	doc := h.querySelect(search, true)
+	doc := h.QuerySelect(search, true)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
 }
 
 func (h *HTMLDocument) Find(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
 
-	doc := h.findSelect(search, false)
+	doc := h.FindSelect(search, false)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
 }
 
 func (h *HTMLDocument) FindOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
-	doc := h.findSelect(search, true)
+	doc := h.FindSelect(search, true)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
 }
 
 func (h *HTMLDocument) FindStrictly(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
-	doc := h.findStrictlySelect(search, false)
+	doc := h.FindStrictlySelect(search, false)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
 }
 
 func (h *HTMLDocument) FindStrictlyOnce(search string, m ...func(doc *HTMLDocument)) *HTMLDocument {
-	doc := h.findStrictlySelect(search, true)
+	doc := h.FindStrictlySelect(search, true)
 
-	if m != nil {
-		m[0](doc)
-	}
+	// if m != nil {
+	// 	m[0](doc)
+	// }
+
+	runCustom(doc, m...)
 
 	return doc
+}
+
+func runCustom(item *HTMLDocument, m ...func(doc *HTMLDocument)) {
+	if m != nil {
+		m[0](item)
+	}
 }
 
 // ----------------------------------------------------------------------------------------------------------
@@ -362,17 +361,21 @@ func (h *HTMLDocument) GetAttr(elem ...string) []string {
 	return getAttr(h.NodeList, false, elem)
 }
 
+// Returns only the first attribute
 func (h *HTMLDocument) GetAttrOnce(elem ...string) string {
 	return getAttr(h.NodeList, true, elem)[0]
 }
 
+// Prints current node list
 func (h *HTMLDocument) PrintNodeList() {
 	for _, x := range h.NodeList {
 		fmt.Println(x)
 	}
 }
 
-// Makes Grouped searches - NOTE for example
+// Makes Grouped searches
+// When the document is set to Done. It will return a new copy of the document
+// Traversal/Searches can be made from that point on without affecting the original document
 func (h *HTMLDocument) Done() {
 	h.Complete = true
 }
@@ -385,19 +388,18 @@ func (h *HTMLDocument) SetNode(i int) *HTMLDocument {
 	return h
 }
 
+// Return given node
 func (h *HTMLDocument) GetNode(i int) Node {
 	return h.NodeList.GetNode(i)
 }
 
+// Returns current nodelist
 func (h *HTMLDocument) GiveNodeList() NodeList {
 	return h.NodeList
 }
 
-// func (h *HTMLDocument) GiveHTMLNodes() []*html.Node {
-// 	return h.NodeList.Nodes
-// }
-
 // Makes all nodes in NodeList part of Node{}
+// Should be avoided
 func (h *HTMLDocument) Nodify() []Node {
 	nodes := make([]Node, len(h.NodeList))
 	for _, x := range h.NodeList {
@@ -416,6 +418,7 @@ func (h *HTMLDocument) Iterate(m func(doc Node)) {
 	}
 }
 
+// Iterates until its finished
 func (h *HTMLDocument) IterateBreak(m func(doc Node) bool) {
 	for _, x := range h.NodeList {
 		b := m(Node{x})
@@ -425,6 +428,7 @@ func (h *HTMLDocument) IterateBreak(m func(doc Node) bool) {
 	}
 }
 
+// Returns nodes attr
 func (n *Node) Attr() map[string]string {
 
 	list := make(map[string]string)
@@ -529,11 +533,12 @@ func (n Node) Text() string {
 	return b.String()
 }
 
-// Removes any whitespace. Good for p, h tags etc
+// Removes any whitespace.
 func (n Node) CleanText() string {
 	return strings.TrimSpace(n.Text())
 }
 
+// Renders the HTML of that node
 func (n *Node) RenderNode() string {
 	var buf bytes.Buffer
 	w := io.Writer(&buf)
@@ -541,6 +546,7 @@ func (n *Node) RenderNode() string {
 	return buf.String()
 }
 
+// Simple attr finder
 func (n *Node) FindAttr(attr string) string {
 	for _, x := range n.Node.Attr {
 		if x.Key == attr {
@@ -575,17 +581,7 @@ func getAttr(r NodeList, once bool, elem []string) []string {
 	return list
 }
 
-func Exetime(name string) func() {
-	start := time.Now()
-	return func() {
-		x := time.Since(start)
-		log.Printf("%s, execution time %s\n", name, x)
-		log.Println(x.Microseconds())
-	}
-}
-
+// Wraps *html.Node to Node
 func ToNode(r *html.Node) *Node {
 	return &Node{r}
 }
-
-// --------------------------------------------------------------
