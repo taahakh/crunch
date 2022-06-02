@@ -282,7 +282,7 @@ func (p *Pool) RunSimple(id string) {
 	go Run(p.collections[id])
 }
 
-func (p *Pool) RunSession(id string, handler CompleteHandler) {
+func (p *Pool) RunSession(id string, handler SessionHandler) {
 	p.collections[id].Start = true
 	go Session(p.collections[id], handler)
 }

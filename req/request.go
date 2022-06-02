@@ -175,7 +175,7 @@ type Collection struct {
 // CompleteHandler is the handler for the complete request function
 //
 // It defines how requests should be handled once they are finished or an error has occured
-type CompleteHandler interface {
+type SessionHandler interface {
 	Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection)
 }
 
@@ -188,7 +188,7 @@ type BatchHandler interface {
 }
 
 // Default handler for Complete
-type DefaultCompleteHandler struct {
+type DefaultSessionHandler struct {
 	c int
 	h int
 }
@@ -362,7 +362,7 @@ func (ri *RequestItem) CancelRequest() {
 /* HANDLERS ----------------------------------------------------- */
 
 // Handle requests
-func (dh *DefaultCompleteHandler) Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) {
+func (dh *DefaultSessionHandler) Handle(item *Send, wg *sync.WaitGroup, retry chan *Send, rc *Collection) {
 	switch {
 	case item.Caught:
 		wg.Add(1)

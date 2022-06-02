@@ -42,48 +42,6 @@ func SingleList(csv [][]string, protocol string) []string {
 	return ipList
 }
 
-/* CONNECTION */
-
-// Proxy is a simple request made with a proxy
-//
-// ONLY HTTP/HTTPS compatable
-func Proxy(link, proxy string, timeout time.Duration) (*http.Response, error) {
-	p, err := url.Parse(proxy)
-	if err != nil {
-		log.Println("Proxy parsing not working")
-		return &http.Response{}, err
-	}
-
-	l, err := url.Parse(link)
-	if err != nil {
-		log.Println("Link parsing not working")
-		return &http.Response{}, err
-	}
-
-	transport := &http.Transport{
-		Proxy: http.ProxyURL(p),
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   timeout,
-	}
-
-	req, err := http.NewRequest("GET", l.String(), nil)
-	if err != nil {
-		log.Println("New request failed")
-		return &http.Response{}, err
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		log.Println("Client do not working")
-		return &http.Response{}, err
-	}
-
-	return res, err
-}
-
 /* STRUCTURES */
 
 // MakeRequestItem takes in urls and creates a struct that contains http.Request and cancellation function
@@ -166,80 +124,80 @@ func ItemToSend(items []*RequestItem, m func(rp Result) bool) []*Send {
 	return send
 }
 
-// NoProxy doesn't use proxy to make requests
-//
-// Uses shared client for all requests
-func NoProxy(urls []string, timeout time.Duration, method func(rp Result) bool) *Collection {
-	rs := make([]*Send, 0, len(urls))
-	req := ConvertToURL(urls)
+// // NoProxy doesn't use proxy to make requests
+// //
+// // Uses shared client for all requests
+// func NoProxy(urls []string, timeout time.Duration, method func(rp Result) bool) *Collection {
+// 	rs := make([]*Send, 0, len(urls))
+// 	req := ConvertToURL(urls)
 
-	client := &http.Client{}
+// 	client := &http.Client{}
 
-	ri := MakeRequestItems(req)
-	for _, x := range ri {
+// 	ri := MakeRequestItems(req)
+// 	for _, x := range ri {
 
-		rs = append(rs, &Send{
-			Request: x,
-			Scrape:  method,
-			Client:  client,
-		})
-	}
+// 		rs = append(rs, &Send{
+// 			Request: x,
+// 			Scrape:  method,
+// 			Client:  client,
+// 		})
+// 	}
 
-	return &Collection{
-		RS: rs,
-		RJ: &Jar{
-			Clients: []*http.Client{{}},
-		},
-	}
-}
+// 	return &Collection{
+// 		RS: rs,
+// 		RJ: &Jar{
+// 			Clients: []*http.Client{{}},
+// 		},
+// 	}
+// }
 
-// ProxySetup allows requests to be dialled through a proxy
-//
-// Proxy, Url String lists and timeout must not be empty
-// Method func and retries should be added to make the request and scrape more useful
-func ProxySetup(
-	proxy []string,
-	urls []string,
-	headers []*http.Header,
-	retries int,
-	timeout time.Duration,
-	method func(rp Result) bool) *Collection {
+// // ProxySetup allows requests to be dialled through a proxy
+// //
+// // Proxy, Url String lists and timeout must not be empty
+// // Method func and retries should be added to make the request and scrape more useful
+// func ProxySetup(
+// 	proxy []string,
+// 	urls []string,
+// 	headers []*http.Header,
+// 	retries int,
+// 	timeout time.Duration,
+// 	method func(rp Result) bool) *Collection {
 
-	var ri []*RequestItem
+// 	var ri []*RequestItem
 
-	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
-		return nil
-	}
+// 	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
+// 		return nil
+// 	}
 
-	req := ConvertToURL(urls)
-	cli := ConvertToURL(proxy)
+// 	req := ConvertToURL(urls)
+// 	cli := ConvertToURL(proxy)
 
-	ri = MakeRequestItems(req)
-	c := MakeProxyClients(cli, timeout)
+// 	ri = MakeRequestItems(req)
+// 	c := MakeProxyClients(cli, timeout)
 
-	if headers != nil {
-		req, err := ApplyHeadersRI(ri, headers)
-		if err != nil {
-			log.Println("Headers could not be applied")
-		}
-		ri = req
-	}
+// 	if headers != nil {
+// 		req, err := ApplyHeadersRI(ri, headers)
+// 		if err != nil {
+// 			log.Println("Headers could not be applied")
+// 		}
+// 		ri = req
+// 	}
 
-	rj := &Jar{
-		Clients: c,
-		Headers: headers,
-	}
+// 	rj := &Jar{
+// 		Clients: c,
+// 		Headers: headers,
+// 	}
 
-	rs, err := MakeSends(c, ri, retries, method)
-	if err != nil {
-		panic("NICE")
-	}
+// 	rs, err := MakeSends(c, ri, retries, method)
+// 	if err != nil {
+// 		panic("NICE")
+// 	}
 
-	return &Collection{
-		RJ: rj,
-		RS: rs,
-	}
-}
+// 	return &Collection{
+// 		RJ: rj,
+// 		RS: rs,
+// 	}
+// }
 
 // MakeSends attaches client, requests, retries, scraping method in one struct
 func MakeSends(rc []*http.Client, ri []*RequestItem, retries int, method func(rp Result) bool) ([]*Send, error) {
