@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/taahakh/speed/traverse"
+	"github.com/taahakh/crunch/traverse"
 )
 
 func BenchmarkParse(b *testing.B) {
