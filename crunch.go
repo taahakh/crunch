@@ -121,7 +121,8 @@ func ProxySetup(
 	var ri []*req.RequestItem
 
 	if proxy == nil || urls == nil || len(proxy) == 0 || len(urls) == 0 {
-		return nil
+		// return nil
+		panic("Proxy or Urls must not be nil")
 	}
 
 	reqe := req.ConvertToURL(urls)

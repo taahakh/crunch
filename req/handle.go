@@ -1,13 +1,14 @@
 package req
 
 import (
+	"bytes"
 	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"sync"
 
-	"github.com/taahakh/crunch/traverse"
+	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 )
 
@@ -257,9 +258,12 @@ func RunScrape(r *http.Response, res *Store, ms *MutexSend, m func(rp Result) bo
 		return false, err
 	}
 
-	item := traverse.HTMLDocBytes(&bytes)
+	// item := traverse.HTMLDocBytes(&bytes)
+	// pack := Result{}
+	// pack = pack.New(item, res, ms)
 	pack := Result{}
-	pack = pack.New(item, res, ms)
+	parse, _ := htmlParser(bytes)
+	pack = pack.New(parse, res, ms)
 	if m == nil {
 		return true, err
 	}
@@ -293,4 +297,8 @@ func collectionChecker(rc *Collection) *Collection {
 	}
 
 	return rc
+}
+
+func htmlParser(b []byte) (*html.Node, error) {
+	return html.Parse(bytes.NewReader(b))
 }

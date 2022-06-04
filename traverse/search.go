@@ -73,6 +73,10 @@ func HTMLDocUTF8(r *http.Response) (HTMLDocument, error) {
 	return HTMLDocBytes(&bytes), err
 }
 
+func HTMLNodeToDoc(n *html.Node) HTMLDocument {
+	return HTMLDocument{Node: Node{Node: n}, IntialSearch: false, Complete: true}
+}
+
 // ----------------------------------------------------------------------------------------------------------
 
 // Selects control if they are going to search once or until all found
