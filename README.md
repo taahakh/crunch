@@ -1,6 +1,10 @@
 # Crunch
 
-A Web Scraper that works on doing mass grouped requests
+A Web Scraper that works on doing mass grouped requests. 
+
+Create your own custom retry and request handlers.
+
+Use pools to store similar collections that require similiar handling
 
 ## Examples
 
@@ -68,8 +72,12 @@ func main() {
     c := crunch.ProxySetup(...)
 
     pool := req.Pool{}
-    pool.New("pool", req.PoolSettings{})
-    pool.Add("new", col)
+    pool.New("pool", req.PoolSettings{
+        AllCollectionsCompleted: func(p PoolLook) {
+            ...
+        },
+    })
+    pool.Add("new", c)
     pool.RunSession("new")
 }
 
