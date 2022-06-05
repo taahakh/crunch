@@ -13,28 +13,26 @@ import (
 )
 
 // Docify converts any file into nodes that can be traversed
+// A wrapper to the function traverse.HTMLDoc
 func Docify(r io.Reader) (*traverse.HTMLDocument, error) {
 	doc, err := traverse.HTMLDoc(r)
 	return doc, err
 }
 
 // Takes any http response and docify's it
+// A wrapper to the function traverse.HTMLDocUTF8
 func ResponseToDoc(r *http.Response) (traverse.HTMLDocument, error) {
 	doc, err := traverse.HTMLDocUTF8(r)
 	return doc, err
 }
 
 // Run traversal on document
+// A wrapper to the function traverse.SearchSwitch
 // Available search strings functions
 // --> query, queryOnce, find, findOnce, findStrict, findStrictOnce
 func Find(function, search string, doc *traverse.HTMLDocument) *traverse.HTMLDocument {
 	traverse.SearchSwitch(function, search, doc)
 	return doc
-}
-
-// Run custom code on what to do when you have found the particular information
-func Manipulate(doc *traverse.HTMLDocument, method func(doc *traverse.HTMLDocument)) {
-	method(doc)
 }
 
 /* CONNECTION */
