@@ -32,12 +32,28 @@ However, all requests must be stored in the collection
 
 ## Search
 
-tag[attr='val']
+Pattern, --> tag[attr='val', ...]
 
 ### Find
+
+Finds tags that contain these attributes. The value of the attributes are strict.
+
+x[a='b', c='d']
 
 
 ### FindStrictly
 
+Strictly finds tags with the same set of attributes and values.
 
 ### Query
+
+Finds tags that contain these attributes. The value of the attributes are not strict.
+
+If there are spaces in the value, the string is broken up and these value keywords will be searched in relation to the attribute
+
+x[a='b c', d='e']
+
+e.g. <a class="style style1">
+      a[class='style']
+
+      This query will find any 'a' tags that have a 'class' value of 'style
