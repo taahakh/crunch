@@ -105,7 +105,9 @@ There are missing features and the current code base will be heavily reworked.
 
 - Create proper parser
 - Optimise Search functions & Create default search function
-- 
+- Rework HTMLDocument and its respective functions
 - And more...
 
 Benchmarks and Tests need to be provided
+
+crunch v0.1.0
