@@ -88,9 +88,24 @@ func main() {
 
 This is an on-going project. There will be bugs but overall, crunch carries out its default functionality.
 
-There are missing features and the current code base will be heavily reworked
+There are missing features and the current code base will be heavily reworked.
 
--- Create Pool Manager
--- SOCKS compatibility
--- Cookie implementation
--- 
+### Request
+
+- Create Pool Manager
+- SOCKS compatibility
+- Cookie implementation
+- Queue system (With chan?)
+- Replace http.Clients with http.Transport
+- Batch requests
+- Merge request module with crunch?
+- And more...
+
+### Traverse
+
+- Create proper parser
+- Optimise Search functions & Create default search function
+- 
+- And more...
+
+Benchmarks and Tests need to be provided

@@ -1,3 +1,6 @@
+
+// BAD CODE - MUST CHANGE
+
 package speed
 
 import (
