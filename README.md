@@ -2,9 +2,9 @@
 
 A Web Scraper that works on doing mass grouped requests. 
 
-Create your own custom retry and request handlers.
+Crunch provides flexibility in creating your own custom retry and request handlers while providing a default solution
 
-Use pools to store similar collections that require similiar handling
+Crunch pools provides functionality to control collections externally e.g. end all requests
 
 ## Examples
 
@@ -53,7 +53,7 @@ func main() {
     
     // With proxy/not
     c := crunch.ProxySetup(
-        []string{"..."}, []string{""}, // Proxy / urls
+        []string{"..."}, []string{"..."}, // Proxy / urls
         nil, 5,                        // Headers / Number of retries
         duration,
         onHTML
@@ -83,3 +83,14 @@ func main() {
 
 
 ```
+
+## To-Do
+
+This is an on-going project. There will be bugs but overall, crunch carries out its default functionality.
+
+There are missing features and the current code base will be heavily reworked
+
+-- Create Pool Manager
+-- SOCKS compatibility
+-- Cookie implementation
+-- 
