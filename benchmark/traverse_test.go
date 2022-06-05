@@ -9,7 +9,7 @@ import (
 )
 
 func BenchmarkParse(b *testing.B) {
-	loc := "C:\\Users\\taaha\\go\\src\\github.com\\taahakh\\speed\\data\\spd\\amazonscrape.html"
+	loc := ""
 	file, err := os.ReadFile(loc)
 	if err != nil {
 		return
@@ -21,7 +21,7 @@ func BenchmarkParse(b *testing.B) {
 }
 
 func BenchmarkScrape(b *testing.B) {
-	loc := "C:\\Users\\taaha\\go\\src\\github.com\\taahakh\\speed\\data\\spd\\amazonscrape.html"
+	loc := ""
 	file, err := os.ReadFile(loc)
 	if err != nil {
 		return
