@@ -1,6 +1,6 @@
 # Crunch
 
-A Web Scraper that works on doing mass grouped requests. 
+A Web Scraper that works on mass grouped requests. 
 
 Crunch provides flexibility in creating your own custom retry and request handlers while providing a default solution
 
