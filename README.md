@@ -6,6 +6,8 @@ Crunch provides flexibility in creating your own custom retry and request handle
 
 Crunch pools provides functionality to control collections externally e.g. end all requests
 
+A custom DOM Traversal module is used. However, other modules can be used in its place
+
 ## Examples
 
 ### Without Proxy
