@@ -30,7 +30,7 @@ func main() {
         onHTML
     )
 
-    crunch.Do("Run", c, nil)
+    crunch.Do(c, "Run", nil)
 }
 
 
@@ -59,7 +59,7 @@ func main() {
         onHTML
     )
 
-    crunch.Do("Run", c, nil)
+    crunch.Do(c, "Run", nil)
 }
 
 
