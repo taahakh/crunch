@@ -16,6 +16,7 @@ type SaveData []string
 // crunch - Standard methods for scraping and requesting
 // req - Methods for requesting webpages. Pools to manage multiple sets of requests
 // traverse - Depth first traversal of HTML Nodes
+// NOTE: This traverse module is custom made
 
 // traverse package can be replaced by a different package if wanted
 // crunch & req packages are needed to carry out basic functionality
