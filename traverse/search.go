@@ -405,7 +405,7 @@ func (h *HTMLDocument) GiveNodeList() NodeList {
 // Makes all nodes in NodeList part of Node{}
 // Should be avoided
 func (h *HTMLDocument) Nodify() []Node {
-	nodes := make([]Node, len(h.NodeList))
+	nodes := make([]Node, 0, len(h.NodeList))
 	for _, x := range h.NodeList {
 		nodes = append(nodes, Node{x})
 	}
