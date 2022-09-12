@@ -32,7 +32,7 @@ func toScrape(result req.Result) bool {
 	doc := traverse.HTMLNodeToDoc(result.Document())
 
 	// Print out the text in the HTML File
-	log.Println(doc.Node.Text())
+	log.Println("Whole webpage: ", doc.Node.Text())
 
 	// Examples of what you can do
 
@@ -41,7 +41,7 @@ func toScrape(result req.Result) bool {
 	//
 	// There are a variety of options to choose from. There are different types of 'Find' Methods
 	// You can look or sibling children etc., render HTML from notes etc.
-	log.Println(doc.Find("[id='forecast-text-accordion']", func(inner *traverse.HTMLDocument) {
+	log.Println(doc.Find("[id='fiveDayText']", func(inner *traverse.HTMLDocument) {
 
 		// When developing, you can use this function to see all available nodes that the
 		// search function has found
@@ -50,7 +50,7 @@ func toScrape(result req.Result) bool {
 		// I want to save my results so im going to create a struct that will contain strings
 		// It better to use structs due to the nature of interfaces as we going to have to
 		// depolymorphise (don't think that's the right term for this situation) in order to retrieve data
-		// It should be used in practice however in areas where different structs and different data types need
+		// It shouldn't be used in practice. However in areas where different structs and different data types are needed
 		// to be stored conveniently, this is perfect
 		var data SaveData
 
@@ -58,7 +58,7 @@ func toScrape(result req.Result) bool {
 
 			txt := x.Text()
 
-			log.Println(txt)
+			log.Println("Specific part of the webpage: ", txt)
 
 			data = append(data, txt)
 			result.Save(data)
