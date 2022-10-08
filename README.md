@@ -1,10 +1,12 @@
 # Crunch
 
-A Web Scraper that works on doing mass grouped requests. 
+A Web Scraper that works on mass grouped requests. 
 
 Crunch provides flexibility in creating your own custom retry and request handlers while providing a default solution
 
 Crunch pools provides functionality to control collections externally e.g. end all requests
+
+A custom DOM Traversal module is used. However, other modules can be used in its place
 
 ## Examples
 
@@ -30,7 +32,7 @@ func main() {
         onHTML
     )
 
-    crunch.Do("Run", c, nil)
+    crunch.Do(c, "Run", nil)
 }
 
 
@@ -59,7 +61,7 @@ func main() {
         onHTML
     )
 
-    crunch.Do("Run", c, nil)
+    crunch.Do(c, "Run", nil)
 }
 
 
