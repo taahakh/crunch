@@ -90,7 +90,7 @@ func main() {
 
 This is an on-going project. There will be bugs but overall, crunch carries out its default functionality.
 
-There are missing features and the current code base will be heavily reworked.
+There are some features to be added and further testing would be required before it should be used.
 
 ### Request
 
